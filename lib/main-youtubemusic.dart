@@ -74,8 +74,7 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage>
-    with SingleTickerProviderStateMixin {
+class _SearchPageState extends State<SearchPage> {
   final TextEditingController _controller = TextEditingController();
   final AudioPlayer _player = AudioPlayer();
   final YoutubeExplode yt = YoutubeExplode();
@@ -85,31 +84,6 @@ class _SearchPageState extends State<SearchPage>
 
   Video? _currentVideo;
   bool _isPlaying = false;
-
-  late AnimationController _animController;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Animation for white sphere pulsing
-    _animController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 1));
-    _fadeAnimation =
-        Tween<double>(begin: 1.0, end: 0.0).animate(CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeInOut,
-    ));
-
-    _animController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _animController.reverse();
-      } else if (status == AnimationStatus.dismissed) {
-        _animController.forward();
-      }
-    });
-  }
 
   Future<void> _searchSongs(String query) async {
     if (query.isEmpty) return;
@@ -128,20 +102,21 @@ class _SearchPageState extends State<SearchPage>
     }
   }
 
+  // 🔊 Fixed playSong for audioplayers 6.x (network streaming)
   Future<void> _playSong(Video video) async {
     try {
       final manifest = await yt.videos.streamsClient.getManifest(video.id);
       final audio = manifest.audioOnly.withHighestBitrate();
 
       await _player.stop();
+
+      // ✅ Correct way for network URL in audioplayers 6.x
       await _player.play(UrlSource(audio.url.toString()));
 
       setState(() {
         _currentVideo = video;
         _isPlaying = true;
       });
-
-      _animController.forward();
 
       debugPrint("▶️ Playing ${video.title} - ${audio.url}");
     } catch (e) {
@@ -153,11 +128,9 @@ class _SearchPageState extends State<SearchPage>
     if (_isPlaying) {
       await _player.pause();
       setState(() => _isPlaying = false);
-      _animController.stop();
     } else {
       await _player.resume();
       setState(() => _isPlaying = true);
-      _animController.forward();
     }
   }
 
@@ -165,7 +138,6 @@ class _SearchPageState extends State<SearchPage>
   void dispose() {
     _player.dispose();
     yt.close();
-    _animController.dispose();
     super.dispose();
   }
 
@@ -240,17 +212,8 @@ class _SearchPageState extends State<SearchPage>
                                 style: const TextStyle(color: Colors.white70),
                               ),
                               trailing: _currentVideo?.id == video.id
-                                  ? FadeTransition(
-                                      opacity: _fadeAnimation,
-                                      child: Container(
-                                        width: 12,
-                                        height: 12,
-                                        decoration: const BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    )
+                                  ? const Icon(Icons.equalizer,
+                                      color: Colors.green)
                                   : null,
                             );
                           },
