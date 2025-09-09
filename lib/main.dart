@@ -73,13 +73,14 @@ class _SearchPageState extends State<SearchPage>
   final YoutubeExplode yt = YoutubeExplode();
 
   List<Video> _results = [];
+  List<Video> _history = []; // ✅ search history
   bool _isLoading = false;
 
   final ValueNotifier<Video?> _currentVideoNotifier = ValueNotifier(null);
   int _currentIndex = -1;
   bool _isPlaying = false;
   bool _isBuffering = false;
-  bool _isRepeating = false; // ✅ repeat flag
+  bool _isRepeating = false;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
@@ -112,12 +113,8 @@ class _SearchPageState extends State<SearchPage>
       if (!mounted) return;
       setState(() {
         _isPlaying = state == PlayerState.playing;
-
-        if (_isPlaying) {
-          _isBuffering = false;
-        }
+        if (_isPlaying) _isBuffering = false;
       });
-
       if (_isPlaying) {
         _animController.forward();
       } else {
@@ -133,10 +130,8 @@ class _SearchPageState extends State<SearchPage>
 
     _player.onPlayerComplete.listen((_) async {
       if (_isRepeating && _currentIndex >= 0) {
-        // ✅ repeat same song
         await _playSong(_results[_currentIndex], index: _currentIndex);
       } else if (_currentIndex + 1 < _results.length) {
-        // play next
         final nextVideo = _results[_currentIndex + 1];
         _playSong(nextVideo, index: _currentIndex + 1);
       } else {
@@ -149,7 +144,10 @@ class _SearchPageState extends State<SearchPage>
   }
 
   Future<void> _searchSongs(String query) async {
-    if (query.isEmpty) return;
+    if (query.isEmpty) {
+      setState(() => _results = []);
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -181,6 +179,12 @@ class _SearchPageState extends State<SearchPage>
       _currentIndex = index ?? _results.indexOf(video);
       _isBuffering = true;
     });
+
+    // ✅ add to history if not already there
+    if (!_history.any((v) => v.id == video.id)) {
+      _history.insert(0, video);
+    }
+
     _currentVideoNotifier.value = video;
 
     try {
@@ -362,7 +366,6 @@ class _SearchPageState extends State<SearchPage>
                           ],
                         ),
                         const SizedBox(height: 12),
-                        // ✅ Repeat button
                         IconButton(
                           icon: Icon(Icons.repeat,
                               size: 30,
@@ -400,6 +403,9 @@ class _SearchPageState extends State<SearchPage>
 
   @override
   Widget build(BuildContext context) {
+    final displayList =
+        _controller.text.isEmpty ? _history : _results; // ✅ show history if empty
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D1B2A),
       body: SafeArea(
@@ -418,14 +424,25 @@ class _SearchPageState extends State<SearchPage>
                   style: const TextStyle(color: Colors.white),
                   onChanged: (query) {
                     if (_debounce?.isActive ?? false) _debounce!.cancel();
-                    _debounce = Timer(const Duration(milliseconds: 500),
+                    _debounce = Timer(
+                        const Duration(milliseconds: 500),
                         () => _searchSongs(query));
+                    setState(() {});
                   },
-                  decoration: const InputDecoration(
-                    icon: Icon(Icons.search, color: Colors.white),
+                  decoration: InputDecoration(
+                    icon: const Icon(Icons.search, color: Colors.white),
                     hintText: "Search YouTube Music...",
-                    hintStyle: TextStyle(color: Colors.white70),
+                    hintStyle: const TextStyle(color: Colors.white70),
                     border: InputBorder.none,
+                    suffixIcon: _controller.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: Colors.white),
+                            onPressed: () {
+                              _controller.clear();
+                              setState(() {}); // refresh UI
+                            },
+                          )
+                        : null,
                   ),
                 ),
               ),
@@ -434,16 +451,17 @@ class _SearchPageState extends State<SearchPage>
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(color: Colors.white))
-                  : _results.isEmpty
+                  : displayList.isEmpty
                       ? const Center(
                           child: Text("No results yet 🎵",
                               style: TextStyle(color: Colors.white70)))
                       : ListView.builder(
-                          itemCount: _results.length,
+                          itemCount: displayList.length,
                           itemBuilder: (context, index) {
-                            final video = _results[index];
+                            final video = displayList[index];
                             return ListTile(
-                              onTap: () => _playSong(video, index: index),
+                              onTap: () => _playSong(video,
+                                  index: _results.indexOf(video)),
                               leading: Image.network(video.thumbnails.highResUrl,
                                   width: 50,
                                   height: 50,
