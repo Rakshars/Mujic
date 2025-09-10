@@ -53,7 +53,7 @@ class _HomePageState extends State<HomePage>
   double _volume = 1.0;
   List<Video> _results = [];
 
-  // --- New: liked songs as ValueNotifier for live updates ---
+  // --- Liked songs list ---
   final ValueNotifier<List<Video>> _likedSongsNotifier =
       ValueNotifier<List<Video>>([]);
 
@@ -124,6 +124,8 @@ class _HomePageState extends State<HomePage>
       PlaylistPage(
         likedSongsNotifier: _likedSongsNotifier,
         onPlaySong: _playSong,
+        fadeAnimation: _fadeAnimation,
+        currentVideoNotifier: _currentVideoNotifier,
       ),
     ];
   }
@@ -646,19 +648,26 @@ class _SearchPageState extends State<SearchPage>
   }
 }
 
-// --- Playlist Page with live counter ---
 class PlaylistPage extends StatefulWidget {
   final ValueNotifier<List<Video>> likedSongsNotifier;
   final Function(Video, {int? index}) onPlaySong;
+  final Animation<double> fadeAnimation;
+  final ValueNotifier<Video?> currentVideoNotifier;
 
   const PlaylistPage(
-      {super.key, required this.likedSongsNotifier, required this.onPlaySong});
+      {super.key,
+      required this.likedSongsNotifier,
+      required this.onPlaySong,
+      required this.fadeAnimation,
+      required this.currentVideoNotifier});
 
   @override
   State<PlaylistPage> createState() => _PlaylistPageState();
 }
 
 class _PlaylistPageState extends State<PlaylistPage> {
+  bool _expanded = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -677,7 +686,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   ValueListenableBuilder<List<Video>>(
                     valueListenable: widget.likedSongsNotifier,
                     builder: (_, likedSongs, __) {
-                      return ListTile(
+                      return ExpansionTile(
+                        initiallyExpanded: _expanded,
+                        onExpansionChanged: (value) {
+                          setState(() => _expanded = value);
+                        },
                         leading: const Icon(Icons.favorite,
                             color: Colors.pinkAccent, size: 32),
                         title: const Text("Liked Songs",
@@ -687,18 +700,80 @@ class _PlaylistPageState extends State<PlaylistPage> {
                             "${likedSongs.length} ${likedSongs.length == 1 ? 'song' : 'songs'}",
                             style: const TextStyle(
                                 color: Colors.white70, fontSize: 14)),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PlaylistDetailPage(
-                                title: "Liked Songs",
-                                songs: likedSongs,
-                                onPlaySong: widget.onPlaySong,
-                              ),
-                            ),
-                          );
-                        },
+                        children: likedSongs.isEmpty
+                            ? [
+                                const ListTile(
+                                  title: Text("No songs yet",
+                                      style: TextStyle(color: Colors.white70)),
+                                )
+                              ]
+                            : [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.pinkAccent,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      if (likedSongs.isNotEmpty) {
+                                        widget.onPlaySong(likedSongs.first,
+                                            index: 0);
+                                      }
+                                    },
+                                    icon: const Icon(Icons.play_arrow),
+                                    label: const Text("Play All"),
+                                  ),
+                                ),
+                                ...likedSongs.map((video) {
+                                  return ValueListenableBuilder<Video?>(
+                                    valueListenable:
+                                        widget.currentVideoNotifier,
+                                    builder: (_, currentVideo, __) {
+                                      final isPlayingSong =
+                                          currentVideo?.id.value ==
+                                              video.id.value;
+                                      return ListTile(
+                                        leading: Image.network(
+                                          video.thumbnails.highResUrl,
+                                          width: 50,
+                                          height: 50,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(Icons.music_note,
+                                                  color: Colors.white),
+                                        ),
+                                        title: Text(video.title,
+                                            style: const TextStyle(
+                                                color: Colors.white)),
+                                        subtitle: Text(video.author,
+                                            style: const TextStyle(
+                                                color: Colors.white70)),
+                                        onTap: () =>
+                                            widget.onPlaySong(video),
+                                        trailing: isPlayingSong
+                                            ? FadeTransition(
+                                                opacity:
+                                                    widget.fadeAnimation,
+                                                child: Container(
+                                                  width: 16,
+                                                  height: 16,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              )
+                                            : null,
+                                      );
+                                    },
+                                  );
+                                }).toList(),
+                              ],
                       );
                     },
                   ),
@@ -708,51 +783,6 @@ class _PlaylistPageState extends State<PlaylistPage> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class PlaylistDetailPage extends StatelessWidget {
-  final String title;
-  final List<Video> songs;
-  final Function(Video, {int? index}) onPlaySong;
-
-  const PlaylistDetailPage(
-      {super.key,
-      required this.title,
-      required this.songs,
-      required this.onPlaySong});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D1B2A),
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: const Color(0xFF0D1B2A),
-      ),
-      body: songs.isEmpty
-          ? const Center(
-              child: Text("No songs yet",
-                  style: TextStyle(color: Colors.white70)))
-          : ListView.builder(
-              itemCount: songs.length,
-              itemBuilder: (context, index) {
-                final video = songs[index];
-                return ListTile(
-                  leading: Image.network(video.thumbnails.highResUrl,
-                      width: 50,
-                      height: 50,
-                      errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.music_note, color: Colors.white)),
-                  title: Text(video.title,
-                      style: const TextStyle(color: Colors.white)),
-                  subtitle: Text(video.author,
-                      style: const TextStyle(color: Colors.white70)),
-                  onTap: () => onPlaySong(video),
-                );
-              },
-            ),
     );
   }
 }
