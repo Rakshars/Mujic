@@ -31,65 +31,30 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = const [
-    SearchPage(),
-    PlaylistPage(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFF0D1B2A),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: "Search"),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.playlist_play), label: "Playlists"),
-        ],
-      ),
-    );
-  }
-}
-
-class SearchPage extends StatefulWidget {
-  const SearchPage({super.key});
-
-  @override
-  State<SearchPage> createState() => _SearchPageState();
-}
-
-class _SearchPageState extends State<SearchPage>
-    with SingleTickerProviderStateMixin {
-  final TextEditingController _controller = TextEditingController();
   final AudioPlayer _player = AudioPlayer();
   final YoutubeExplode yt = YoutubeExplode();
 
-  List<Video> _results = [];
-  List<Video> _history = [];
-  bool _isLoading = false;
-
+  // Shared Notifier
   final ValueNotifier<Video?> _currentVideoNotifier = ValueNotifier(null);
-  int _currentIndex = -1;
+
+  // Shared playback state
   bool _isPlaying = false;
   bool _isBuffering = false;
   bool _isRepeating = false;
+  int _currentResultIndex = -1;
+  Duration _duration = Duration.zero;
+  final Map<String, String> _audioUrls = {};
 
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
 
-  Duration _duration = Duration.zero;
-  final Map<String, String> _audioUrls = {};
-  Timer? _debounce;
+  double _volume = 1.0;
 
-  double _volume = 1.0; // ✅ can go up to 2.0 now
+  List<Video> _results = [];
 
   @override
   void initState() {
@@ -131,11 +96,11 @@ class _SearchPageState extends State<SearchPage>
         setState(() => _isBuffering = false);
       }
       if (state == ProcessingState.completed) {
-        if (_isRepeating && _currentIndex >= 0) {
-          _playSong(_results[_currentIndex], index: _currentIndex);
-        } else if (_currentIndex + 1 < _results.length) {
-          final nextVideo = _results[_currentIndex + 1];
-          _playSong(nextVideo, index: _currentIndex + 1);
+        if (_isRepeating && _currentResultIndex >= 0) {
+          _playSong(_results[_currentResultIndex], index: _currentResultIndex);
+        } else if (_currentResultIndex + 1 < _results.length) {
+          final nextVideo = _results[_currentResultIndex + 1];
+          _playSong(nextVideo, index: _currentResultIndex + 1);
         } else {
           setState(() {
             _isPlaying = false;
@@ -146,46 +111,19 @@ class _SearchPageState extends State<SearchPage>
     });
   }
 
-  Future<void> _searchSongs(String query) async {
-    if (query.isEmpty) {
-      setState(() => _results = []);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final searchResults = await yt.search.getVideos(query);
-      setState(() {
-        _results = searchResults.toList();
-        _isLoading = false;
-      });
-
-      for (var video in _results) {
-        Future.microtask(() async {
-          try {
-            final manifest =
-                await yt.videos.streamsClient.getManifest(video.id);
-            final audio = manifest.audioOnly.withHighestBitrate();
-            _audioUrls[video.id.value] = audio.url.toString();
-          } catch (_) {}
-        });
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      debugPrint("Error searching: $e");
-    }
+  @override
+  void dispose() {
+    _player.dispose();
+    yt.close();
+    _animController.dispose();
+    super.dispose();
   }
 
   Future<void> _playSong(Video video, {int? index}) async {
     setState(() {
-      _currentIndex = index ?? _results.indexOf(video);
+      _currentResultIndex = index ?? _results.indexOf(video);
       _isBuffering = true;
     });
-
-    if (!_history.any((v) => v.id == video.id)) {
-      _history.insert(0, video);
-    }
 
     _currentVideoNotifier.value = video;
 
@@ -337,9 +275,10 @@ class _SearchPageState extends State<SearchPage>
                               icon: const Icon(Icons.skip_previous,
                                   size: 40, color: Colors.white),
                               onPressed: () {
-                                if (_currentIndex > 0) {
-                                  _playSong(_results[_currentIndex - 1],
-                                      index: _currentIndex - 1);
+                                if (_currentResultIndex > 0) {
+                                  _playSong(
+                                      _results[_currentResultIndex - 1],
+                                      index: _currentResultIndex - 1);
                                 }
                               },
                             ),
@@ -361,9 +300,11 @@ class _SearchPageState extends State<SearchPage>
                               icon: const Icon(Icons.skip_next,
                                   size: 40, color: Colors.white),
                               onPressed: () {
-                                if (_currentIndex + 1 < _results.length) {
-                                  _playSong(_results[_currentIndex + 1],
-                                      index: _currentIndex + 1);
+                                if (_currentResultIndex + 1 <
+                                    _results.length) {
+                                  _playSong(
+                                      _results[_currentResultIndex + 1],
+                                      index: _currentResultIndex + 1);
                                 }
                               },
                             ),
@@ -379,7 +320,6 @@ class _SearchPageState extends State<SearchPage>
                           onPressed: () => _toggleRepeat(modalSetState),
                         ),
                         const SizedBox(height: 20),
-                        // ✅ Volume Slider (0.0 → 2.0)
                         Row(
                           children: [
                             const Icon(Icons.volume_down,
@@ -422,18 +362,144 @@ class _SearchPageState extends State<SearchPage>
   }
 
   @override
-  void dispose() {
-    _player.dispose();
-    yt.close();
-    _animController.dispose();
-    _debounce?.cancel();
-    super.dispose();
+  Widget build(BuildContext context) {
+    final List<Widget> _pages = [
+      SearchPage(
+          yt: yt,
+          onPlaySong: _playSong,
+          resultsCallback: (r) => setState(() => _results = r),
+          currentIndex: _currentResultIndex,
+          fadeAnimation: _fadeAnimation),
+      const PlaylistPage(),
+    ];
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          _pages[_currentIndex],
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: ValueListenableBuilder<Video?>(
+              valueListenable: _currentVideoNotifier,
+              builder: (_, currentVideo, __) {
+                if (currentVideo == null) return const SizedBox();
+                return InkWell(
+                  onTap: () => _openFullPlayer(context),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 56),
+                    color: Colors.black.withOpacity(0.7),
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      children: [
+                        Image.network(currentVideo.thumbnails.lowResUrl,
+                            width: 50,
+                            height: 50,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.music_note,
+                                    color: Colors.white)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(currentVideo.title,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 14),
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        _isBuffering
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
+                              )
+                            : AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 250),
+                                child: IconButton(
+                                  key: ValueKey<bool>(_isPlaying),
+                                  icon: Icon(
+                                      _isPlaying
+                                          ? Icons.pause
+                                          : Icons.play_arrow,
+                                      color: Colors.white),
+                                  onPressed: () => _togglePlayPause(null),
+                                ),
+                              ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: const Color(0xFF0D1B2A),
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white70,
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: "Search"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.playlist_play), label: "Playlists"),
+        ],
+      ),
+    );
+  }
+}
+
+class SearchPage extends StatefulWidget {
+  final YoutubeExplode yt;
+  final Function(Video, {int? index}) onPlaySong;
+  final Function(List<Video>) resultsCallback;
+  final int currentIndex;
+  final Animation<double> fadeAnimation;
+
+  const SearchPage(
+      {super.key,
+      required this.yt,
+      required this.onPlaySong,
+      required this.resultsCallback,
+      required this.currentIndex,
+      required this.fadeAnimation});
+
+  @override
+  State<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<SearchPage> {
+  final TextEditingController _controller = TextEditingController();
+
+  List<Video> _results = [];
+  List<Video> _history = [];
+  bool _isLoading = false;
+  Timer? _debounce;
+
+  Future<void> _searchSongs(String query) async {
+    if (query.isEmpty) {
+      setState(() => _results = []);
+      widget.resultsCallback([]);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final searchResults = await widget.yt.search.getVideos(query);
+      setState(() {
+        _results = searchResults.toList();
+        _isLoading = false;
+      });
+      widget.resultsCallback(_results);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint("Error searching: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final displayList =
-        _controller.text.isEmpty ? _history : _results;
+    final displayList = _controller.text.isEmpty ? _history : _results;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1B2A),
@@ -488,9 +554,16 @@ class _SearchPageState extends State<SearchPage>
                           itemCount: displayList.length,
                           itemBuilder: (context, index) {
                             final video = displayList[index];
+                            final isPlayingSong =
+                                index == widget.currentIndex;
                             return ListTile(
-                              onTap: () => _playSong(video,
-                                  index: _results.indexOf(video)),
+                              onTap: () {
+                                if (!_history.any((v) => v.id == video.id)) {
+                                  setState(() => _history.insert(0, video));
+                                }
+                                widget.onPlaySong(video,
+                                    index: _results.indexOf(video));
+                              },
                               leading: Image.network(video.thumbnails.highResUrl,
                                   width: 50,
                                   height: 50,
@@ -502,70 +575,22 @@ class _SearchPageState extends State<SearchPage>
                               subtitle: Text(video.author,
                                   style:
                                       const TextStyle(color: Colors.white70)),
-                              trailing: ValueListenableBuilder<Video?>(
-                                valueListenable: _currentVideoNotifier,
-                                builder: (_, current, __) =>
-                                    current?.id == video.id
-                                        ? FadeTransition(
-                                            opacity: _fadeAnimation,
-                                            child: const CircleAvatar(
-                                                radius: 6,
-                                                backgroundColor: Colors.white),
-                                          )
-                                        : const SizedBox.shrink(),
-                              ),
+                              trailing: isPlayingSong
+                                  ? FadeTransition(
+                                      opacity: widget.fadeAnimation,
+                                      child: Container(
+                                        width: 16,
+                                        height: 16,
+                                        decoration: const BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : null,
                             );
                           },
                         ),
-            ),
-            ValueListenableBuilder<Video?>(
-              valueListenable: _currentVideoNotifier,
-              builder: (_, currentVideo, __) {
-                if (currentVideo == null) return const SizedBox();
-                return InkWell(
-                  onTap: () => _openFullPlayer(context),
-                  child: Container(
-                    color: Colors.black.withOpacity(0.7),
-                    padding: const EdgeInsets.all(8),
-                    child: Row(
-                      children: [
-                        Image.network(currentVideo.thumbnails.lowResUrl,
-                            width: 50,
-                            height: 50,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.music_note,
-                                    color: Colors.white)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(currentVideo.title,
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 14),
-                              overflow: TextOverflow.ellipsis),
-                        ),
-                        _isBuffering
-                            ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2),
-                              )
-                            : AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 250),
-                                child: IconButton(
-                                  key: ValueKey<bool>(_isPlaying),
-                                  icon: Icon(
-                                      _isPlaying
-                                          ? Icons.pause
-                                          : Icons.play_arrow,
-                                      color: Colors.white),
-                                  onPressed: () => _togglePlayPause(null),
-                                ),
-                              ),
-                      ],
-                    ),
-                  ),
-                );
-              },
             ),
           ],
         ),
