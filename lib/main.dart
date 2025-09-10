@@ -89,6 +89,8 @@ class _SearchPageState extends State<SearchPage>
   final Map<String, String> _audioUrls = {};
   Timer? _debounce;
 
+  double _volume = 1.0; // ✅ volume state (0.0 to 1.0)
+
   @override
   void initState() {
     super.initState();
@@ -198,6 +200,7 @@ class _SearchPageState extends State<SearchPage>
 
       await _player.stop();
       await _player.play(UrlSource(audioUrl));
+      await _player.setVolume(_volume); // ✅ set last volume
     } catch (e) {
       if (mounted) setState(() => _isBuffering = false);
       debugPrint("Error playing: $e");
@@ -373,6 +376,31 @@ class _SearchPageState extends State<SearchPage>
                                   ? Colors.blueAccent
                                   : Colors.white),
                           onPressed: () => _toggleRepeat(modalSetState),
+                        ),
+                        const SizedBox(height: 20),
+                        // ✅ Volume Slider
+                        Row(
+                          children: [
+                            const Icon(Icons.volume_down,
+                                color: Colors.white, size: 28),
+                            Expanded(
+                              child: Slider(
+                                value: _volume,
+                                min: 0,
+                                max: 1,
+                                divisions: 10,
+                                activeColor: Colors.white,
+                                inactiveColor: Colors.white24,
+                                onChanged: (value) async {
+                                  setState(() => _volume = value);
+                                  await _player.setVolume(_volume);
+                                  modalSetState(() {});
+                                },
+                              ),
+                            ),
+                            const Icon(Icons.volume_up,
+                                color: Colors.white, size: 28),
+                          ],
                         ),
                       ],
                     ),
