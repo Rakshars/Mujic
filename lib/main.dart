@@ -38,10 +38,8 @@ class _HomePageState extends State<HomePage>
   final AudioPlayer _player = AudioPlayer();
   final YoutubeExplode yt = YoutubeExplode();
 
-  // Shared Notifier
   final ValueNotifier<Video?> _currentVideoNotifier = ValueNotifier(null);
 
-  // Shared playback state
   bool _isPlaying = false;
   bool _isBuffering = false;
   bool _isRepeating = false;
@@ -53,8 +51,9 @@ class _HomePageState extends State<HomePage>
   late Animation<double> _fadeAnimation;
 
   double _volume = 1.0;
-
   List<Video> _results = [];
+
+  late final List<Widget> _pages;
 
   @override
   void initState() {
@@ -109,6 +108,17 @@ class _HomePageState extends State<HomePage>
         }
       }
     });
+
+    _pages = [
+      SearchPage(
+        yt: yt,
+        onPlaySong: _playSong,
+        resultsCallback: (r) => setState(() => _results = r),
+        fadeAnimation: _fadeAnimation,
+        currentVideoNotifier: _currentVideoNotifier,
+      ),
+      const PlaylistPage(),
+    ];
   }
 
   @override
@@ -177,7 +187,6 @@ class _HomePageState extends State<HomePage>
               valueListenable: _currentVideoNotifier,
               builder: (_, currentVideo, __) {
                 if (currentVideo == null) return const SizedBox();
-
                 return DraggableScrollableSheet(
                   expand: false,
                   initialChildSize: 0.85,
@@ -214,20 +223,16 @@ class _HomePageState extends State<HomePage>
                           ),
                         ),
                         const SizedBox(height: 20),
-                        Text(
-                          currentVideo.title,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold),
-                        ),
+                        Text(currentVideo.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
-                        Text(
-                          currentVideo.author,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14),
-                        ),
+                        Text(currentVideo.author,
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 14)),
                         const SizedBox(height: 20),
                         StreamBuilder<Duration>(
                           stream: _player.positionStream,
@@ -363,20 +368,13 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> _pages = [
-      SearchPage(
-          yt: yt,
-          onPlaySong: _playSong,
-          resultsCallback: (r) => setState(() => _results = r),
-          currentIndex: _currentResultIndex,
-          fadeAnimation: _fadeAnimation),
-      const PlaylistPage(),
-    ];
-
     return Scaffold(
       body: Stack(
         children: [
-          _pages[_currentIndex],
+          IndexedStack(
+            index: _currentIndex,
+            children: _pages,
+          ),
           Align(
             alignment: Alignment.bottomCenter,
             child: ValueListenableBuilder<Video?>(
@@ -452,28 +450,32 @@ class SearchPage extends StatefulWidget {
   final YoutubeExplode yt;
   final Function(Video, {int? index}) onPlaySong;
   final Function(List<Video>) resultsCallback;
-  final int currentIndex;
   final Animation<double> fadeAnimation;
+  final ValueNotifier<Video?> currentVideoNotifier;
 
   const SearchPage(
       {super.key,
       required this.yt,
       required this.onPlaySong,
       required this.resultsCallback,
-      required this.currentIndex,
-      required this.fadeAnimation});
+      required this.fadeAnimation,
+      required this.currentVideoNotifier});
 
   @override
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class _SearchPageState extends State<SearchPage>
+    with AutomaticKeepAliveClientMixin {
   final TextEditingController _controller = TextEditingController();
 
   List<Video> _results = [];
   List<Video> _history = [];
   bool _isLoading = false;
   Timer? _debounce;
+
+  @override
+  bool get wantKeepAlive => true;
 
   Future<void> _searchSongs(String query) async {
     if (query.isEmpty) {
@@ -499,6 +501,7 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final displayList = _controller.text.isEmpty ? _history : _results;
 
     return Scaffold(
@@ -550,44 +553,54 @@ class _SearchPageState extends State<SearchPage> {
                       ? const Center(
                           child: Text("No results yet 🎵",
                               style: TextStyle(color: Colors.white70)))
-                      : ListView.builder(
-                          itemCount: displayList.length,
-                          itemBuilder: (context, index) {
-                            final video = displayList[index];
-                            final isPlayingSong =
-                                index == widget.currentIndex;
-                            return ListTile(
-                              onTap: () {
-                                if (!_history.any((v) => v.id == video.id)) {
-                                  setState(() => _history.insert(0, video));
-                                }
-                                widget.onPlaySong(video,
-                                    index: _results.indexOf(video));
-                              },
-                              leading: Image.network(video.thumbnails.highResUrl,
-                                  width: 50,
-                                  height: 50,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(Icons.music_note,
+                      : ValueListenableBuilder<Video?>(
+                          valueListenable: widget.currentVideoNotifier,
+                          builder: (_, currentVideo, __) {
+                            return ListView.builder(
+                              itemCount: displayList.length,
+                              itemBuilder: (context, index) {
+                                final video = displayList[index];
+                                final isPlayingSong =
+                                    currentVideo?.id.value == video.id.value;
+                                return ListTile(
+                                  onTap: () {
+                                    if (!_history
+                                        .any((v) => v.id == video.id)) {
+                                      setState(() =>
+                                          _history.insert(0, video));
+                                    }
+                                    widget.onPlaySong(video,
+                                        index: _results.indexOf(video));
+                                  },
+                                  leading: Image.network(
+                                    video.thumbnails.highResUrl,
+                                    width: 50,
+                                    height: 50,
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.music_note,
+                                            color: Colors.white),
+                                  ),
+                                  title: Text(video.title,
+                                      style: const TextStyle(
                                           color: Colors.white)),
-                              title: Text(video.title,
-                                  style: const TextStyle(color: Colors.white)),
-                              subtitle: Text(video.author,
-                                  style:
-                                      const TextStyle(color: Colors.white70)),
-                              trailing: isPlayingSong
-                                  ? FadeTransition(
-                                      opacity: widget.fadeAnimation,
-                                      child: Container(
-                                        width: 16,
-                                        height: 16,
-                                        decoration: const BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    )
-                                  : null,
+                                  subtitle: Text(video.author,
+                                      style: const TextStyle(
+                                          color: Colors.white70)),
+                                  trailing: isPlayingSong
+                                      ? FadeTransition(
+                                          opacity: widget.fadeAnimation,
+                                          child: Container(
+                                            width: 16,
+                                            height: 16,
+                                            decoration: const BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                );
+                              },
                             );
                           },
                         ),
