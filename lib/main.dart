@@ -53,6 +53,10 @@ class _HomePageState extends State<HomePage>
   double _volume = 1.0;
   List<Video> _results = [];
 
+  // --- New: liked songs as ValueNotifier for live updates ---
+  final ValueNotifier<List<Video>> _likedSongsNotifier =
+      ValueNotifier<List<Video>>([]);
+
   late final List<Widget> _pages;
 
   @override
@@ -117,7 +121,10 @@ class _HomePageState extends State<HomePage>
         fadeAnimation: _fadeAnimation,
         currentVideoNotifier: _currentVideoNotifier,
       ),
-      const PlaylistPage(),
+      PlaylistPage(
+        likedSongsNotifier: _likedSongsNotifier,
+        onPlaySong: _playSong,
+      ),
     ];
   }
 
@@ -168,6 +175,21 @@ class _HomePageState extends State<HomePage>
   void _toggleRepeat(StateSetter? modalSetState) {
     setState(() => _isRepeating = !_isRepeating);
     modalSetState?.call(() {});
+  }
+
+  void _toggleLike(Video video, StateSetter? modalSetState) {
+    final current = List<Video>.from(_likedSongsNotifier.value);
+    if (current.any((v) => v.id.value == video.id.value)) {
+      current.removeWhere((v) => v.id.value == video.id.value);
+    } else {
+      current.add(video);
+    }
+    _likedSongsNotifier.value = current;
+    modalSetState?.call(() {});
+  }
+
+  bool _isLiked(Video video) {
+    return _likedSongsNotifier.value.any((v) => v.id.value == video.id.value);
   }
 
   void _openFullPlayer(BuildContext context) {
@@ -277,6 +299,19 @@ class _HomePageState extends State<HomePage>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             IconButton(
+                              icon: Icon(
+                                _isLiked(currentVideo)
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                size: 32,
+                                color: _isLiked(currentVideo)
+                                    ? Colors.red
+                                    : Colors.white,
+                              ),
+                              onPressed: () =>
+                                  _toggleLike(currentVideo, modalSetState),
+                            ),
+                            IconButton(
                               icon: const Icon(Icons.skip_previous,
                                   size: 40, color: Colors.white),
                               onPressed: () {
@@ -313,16 +348,15 @@ class _HomePageState extends State<HomePage>
                                 }
                               },
                             ),
+                            IconButton(
+                              icon: Icon(Icons.repeat,
+                                  size: 30,
+                                  color: _isRepeating
+                                      ? Colors.blueAccent
+                                      : Colors.white),
+                              onPressed: () => _toggleRepeat(modalSetState),
+                            ),
                           ],
-                        ),
-                        const SizedBox(height: 12),
-                        IconButton(
-                          icon: Icon(Icons.repeat,
-                              size: 30,
-                              color: _isRepeating
-                                  ? Colors.blueAccent
-                                  : Colors.white),
-                          onPressed: () => _toggleRepeat(modalSetState),
                         ),
                         const SizedBox(height: 20),
                         Row(
@@ -612,17 +646,113 @@ class _SearchPageState extends State<SearchPage>
   }
 }
 
-class PlaylistPage extends StatelessWidget {
-  const PlaylistPage({super.key});
+// --- Playlist Page with live counter ---
+class PlaylistPage extends StatefulWidget {
+  final ValueNotifier<List<Video>> likedSongsNotifier;
+  final Function(Video, {int? index}) onPlaySong;
+
+  const PlaylistPage(
+      {super.key, required this.likedSongsNotifier, required this.onPlaySong});
+
+  @override
+  State<PlaylistPage> createState() => _PlaylistPageState();
+}
+
+class _PlaylistPageState extends State<PlaylistPage> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D1B2A),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text("Your Playlists 🎶",
+                  style: TextStyle(color: Colors.white, fontSize: 20)),
+            ),
+            Expanded(
+              child: ListView(
+                children: [
+                  ValueListenableBuilder<List<Video>>(
+                    valueListenable: widget.likedSongsNotifier,
+                    builder: (_, likedSongs, __) {
+                      return ListTile(
+                        leading: const Icon(Icons.favorite,
+                            color: Colors.pinkAccent, size: 32),
+                        title: const Text("Liked Songs",
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 18)),
+                        subtitle: Text(
+                            "${likedSongs.length} ${likedSongs.length == 1 ? 'song' : 'songs'}",
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 14)),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PlaylistDetailPage(
+                                title: "Liked Songs",
+                                songs: likedSongs,
+                                onPlaySong: widget.onPlaySong,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PlaylistDetailPage extends StatelessWidget {
+  final String title;
+  final List<Video> songs;
+  final Function(Video, {int? index}) onPlaySong;
+
+  const PlaylistDetailPage(
+      {super.key,
+      required this.title,
+      required this.songs,
+      required this.onPlaySong});
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFF0D1B2A),
-      body: Center(
-        child: Text("Your Playlists 🎶",
-            style: TextStyle(color: Colors.white, fontSize: 20)),
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D1B2A),
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: const Color(0xFF0D1B2A),
       ),
+      body: songs.isEmpty
+          ? const Center(
+              child: Text("No songs yet",
+                  style: TextStyle(color: Colors.white70)))
+          : ListView.builder(
+              itemCount: songs.length,
+              itemBuilder: (context, index) {
+                final video = songs[index];
+                return ListTile(
+                  leading: Image.network(video.thumbnails.highResUrl,
+                      width: 50,
+                      height: 50,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.music_note, color: Colors.white)),
+                  title: Text(video.title,
+                      style: const TextStyle(color: Colors.white)),
+                  subtitle: Text(video.author,
+                      style: const TextStyle(color: Colors.white70)),
+                  onTap: () => onPlaySong(video),
+                );
+              },
+            ),
     );
   }
 }
