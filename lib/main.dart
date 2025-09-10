@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 void main() {
@@ -73,7 +73,7 @@ class _SearchPageState extends State<SearchPage>
   final YoutubeExplode yt = YoutubeExplode();
 
   List<Video> _results = [];
-  List<Video> _history = []; // ✅ search history
+  List<Video> _history = [];
   bool _isLoading = false;
 
   final ValueNotifier<Video?> _currentVideoNotifier = ValueNotifier(null);
@@ -89,7 +89,7 @@ class _SearchPageState extends State<SearchPage>
   final Map<String, String> _audioUrls = {};
   Timer? _debounce;
 
-  double _volume = 1.0; // ✅ volume state (0.0 to 1.0)
+  double _volume = 1.0; // ✅ can go up to 2.0 now
 
   @override
   void initState() {
@@ -109,12 +109,14 @@ class _SearchPageState extends State<SearchPage>
       }
     });
 
-    _player.onDurationChanged.listen((d) => setState(() => _duration = d));
+    _player.durationStream.listen((d) {
+      if (d != null) setState(() => _duration = d);
+    });
 
-    _player.onPlayerStateChanged.listen((state) {
+    _player.playerStateStream.listen((state) {
       if (!mounted) return;
       setState(() {
-        _isPlaying = state == PlayerState.playing;
+        _isPlaying = state.playing;
         if (_isPlaying) _isBuffering = false;
       });
       if (_isPlaying) {
@@ -124,23 +126,22 @@ class _SearchPageState extends State<SearchPage>
       }
     });
 
-    _player.onPositionChanged.listen((pos) {
-      if (_isBuffering && pos > Duration.zero) {
+    _player.processingStateStream.listen((state) {
+      if (state == ProcessingState.ready && _isBuffering) {
         setState(() => _isBuffering = false);
       }
-    });
-
-    _player.onPlayerComplete.listen((_) async {
-      if (_isRepeating && _currentIndex >= 0) {
-        await _playSong(_results[_currentIndex], index: _currentIndex);
-      } else if (_currentIndex + 1 < _results.length) {
-        final nextVideo = _results[_currentIndex + 1];
-        _playSong(nextVideo, index: _currentIndex + 1);
-      } else {
-        setState(() {
-          _isPlaying = false;
-          _animController.stop();
-        });
+      if (state == ProcessingState.completed) {
+        if (_isRepeating && _currentIndex >= 0) {
+          _playSong(_results[_currentIndex], index: _currentIndex);
+        } else if (_currentIndex + 1 < _results.length) {
+          final nextVideo = _results[_currentIndex + 1];
+          _playSong(nextVideo, index: _currentIndex + 1);
+        } else {
+          setState(() {
+            _isPlaying = false;
+            _animController.stop();
+          });
+        }
       }
     });
   }
@@ -182,7 +183,6 @@ class _SearchPageState extends State<SearchPage>
       _isBuffering = true;
     });
 
-    // ✅ add to history if not already there
     if (!_history.any((v) => v.id == video.id)) {
       _history.insert(0, video);
     }
@@ -199,8 +199,9 @@ class _SearchPageState extends State<SearchPage>
       }
 
       await _player.stop();
-      await _player.play(UrlSource(audioUrl));
-      await _player.setVolume(_volume); // ✅ set last volume
+      await _player.setUrl(audioUrl);
+      await _player.setVolume(_volume);
+      await _player.play();
     } catch (e) {
       if (mounted) setState(() => _isBuffering = false);
       debugPrint("Error playing: $e");
@@ -211,7 +212,7 @@ class _SearchPageState extends State<SearchPage>
     if (_isPlaying) {
       await _player.pause();
     } else {
-      await _player.resume();
+      await _player.play();
     }
     modalSetState?.call(() {});
   }
@@ -291,7 +292,7 @@ class _SearchPageState extends State<SearchPage>
                         ),
                         const SizedBox(height: 20),
                         StreamBuilder<Duration>(
-                          stream: _player.onPositionChanged,
+                          stream: _player.positionStream,
                           builder: (context, snapshot) {
                             final position = snapshot.data ?? Duration.zero;
                             return Column(
@@ -378,7 +379,7 @@ class _SearchPageState extends State<SearchPage>
                           onPressed: () => _toggleRepeat(modalSetState),
                         ),
                         const SizedBox(height: 20),
-                        // ✅ Volume Slider
+                        // ✅ Volume Slider (0.0 → 2.0)
                         Row(
                           children: [
                             const Icon(Icons.volume_down,
@@ -387,8 +388,8 @@ class _SearchPageState extends State<SearchPage>
                               child: Slider(
                                 value: _volume,
                                 min: 0,
-                                max: 1,
-                                divisions: 10,
+                                max: 2.0,
+                                divisions: 20,
                                 activeColor: Colors.white,
                                 inactiveColor: Colors.white24,
                                 onChanged: (value) async {
@@ -432,7 +433,7 @@ class _SearchPageState extends State<SearchPage>
   @override
   Widget build(BuildContext context) {
     final displayList =
-        _controller.text.isEmpty ? _history : _results; // ✅ show history if empty
+        _controller.text.isEmpty ? _history : _results;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1B2A),
@@ -467,7 +468,7 @@ class _SearchPageState extends State<SearchPage>
                             icon: const Icon(Icons.clear, color: Colors.white),
                             onPressed: () {
                               _controller.clear();
-                              setState(() {}); // refresh UI
+                              setState(() {});
                             },
                           )
                         : null,
