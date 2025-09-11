@@ -43,7 +43,6 @@ class _HomePageState extends State<HomePage>
   bool _isPlaying = false;
   bool _isBuffering = false;
   bool _isRepeating = false;
-  int _currentResultIndex = -1;
   Duration _duration = Duration.zero;
   final Map<String, String> _audioUrls = {};
 
@@ -51,11 +50,15 @@ class _HomePageState extends State<HomePage>
   late Animation<double> _fadeAnimation;
 
   double _volume = 1.0;
-  List<Video> _results = [];
 
-  // --- Liked songs list ---
+  // --- Playlists ---
+  List<Video> _results = [];
   final ValueNotifier<List<Video>> _likedSongsNotifier =
       ValueNotifier<List<Video>>([]);
+
+  // --- Track current playlist (search or liked) ---
+  List<Video> _currentPlaylist = [];
+  int _currentPlaylistIndex = -1;
 
   late final List<Widget> _pages;
 
@@ -99,11 +102,15 @@ class _HomePageState extends State<HomePage>
         setState(() => _isBuffering = false);
       }
       if (state == ProcessingState.completed) {
-        if (_isRepeating && _currentResultIndex >= 0) {
-          _playSong(_results[_currentResultIndex], index: _currentResultIndex);
-        } else if (_currentResultIndex + 1 < _results.length) {
-          final nextVideo = _results[_currentResultIndex + 1];
-          _playSong(nextVideo, index: _currentResultIndex + 1);
+        if (_isRepeating && _currentPlaylistIndex >= 0) {
+          _playSong(_currentPlaylist[_currentPlaylistIndex],
+              index: _currentPlaylistIndex,
+              fromPlaylist: _currentPlaylist);
+        } else if (_currentPlaylistIndex + 1 < _currentPlaylist.length) {
+          final nextVideo = _currentPlaylist[_currentPlaylistIndex + 1];
+          _playSong(nextVideo,
+              index: _currentPlaylistIndex + 1,
+              fromPlaylist: _currentPlaylist);
         } else {
           setState(() {
             _isPlaying = false;
@@ -116,14 +123,16 @@ class _HomePageState extends State<HomePage>
     _pages = [
       SearchPage(
         yt: yt,
-        onPlaySong: _playSong,
+        onPlaySong: (video, {int? index}) =>
+            _playSong(video, index: index, fromPlaylist: _results),
         resultsCallback: (r) => setState(() => _results = r),
         fadeAnimation: _fadeAnimation,
         currentVideoNotifier: _currentVideoNotifier,
       ),
       PlaylistPage(
         likedSongsNotifier: _likedSongsNotifier,
-        onPlaySong: _playSong,
+        onPlaySong: (video, {int? index}) =>
+            _playSong(video, index: index, fromPlaylist: _likedSongsNotifier.value),
         fadeAnimation: _fadeAnimation,
         currentVideoNotifier: _currentVideoNotifier,
       ),
@@ -138,9 +147,11 @@ class _HomePageState extends State<HomePage>
     super.dispose();
   }
 
-  Future<void> _playSong(Video video, {int? index}) async {
+  Future<void> _playSong(Video video,
+      {int? index, required List<Video> fromPlaylist}) async {
     setState(() {
-      _currentResultIndex = index ?? _results.indexOf(video);
+      _currentPlaylist = fromPlaylist;
+      _currentPlaylistIndex = index ?? fromPlaylist.indexOf(video);
       _isBuffering = true;
     });
 
@@ -317,10 +328,11 @@ class _HomePageState extends State<HomePage>
                               icon: const Icon(Icons.skip_previous,
                                   size: 40, color: Colors.white),
                               onPressed: () {
-                                if (_currentResultIndex > 0) {
+                                if (_currentPlaylistIndex > 0) {
                                   _playSong(
-                                      _results[_currentResultIndex - 1],
-                                      index: _currentResultIndex - 1);
+                                      _currentPlaylist[_currentPlaylistIndex - 1],
+                                      index: _currentPlaylistIndex - 1,
+                                      fromPlaylist: _currentPlaylist);
                                 }
                               },
                             ),
@@ -342,11 +354,12 @@ class _HomePageState extends State<HomePage>
                               icon: const Icon(Icons.skip_next,
                                   size: 40, color: Colors.white),
                               onPressed: () {
-                                if (_currentResultIndex + 1 <
-                                    _results.length) {
+                                if (_currentPlaylistIndex + 1 <
+                                    _currentPlaylist.length) {
                                   _playSong(
-                                      _results[_currentResultIndex + 1],
-                                      index: _currentResultIndex + 1);
+                                      _currentPlaylist[_currentPlaylistIndex + 1],
+                                      index: _currentPlaylistIndex + 1,
+                                      fromPlaylist: _currentPlaylist);
                                 }
                               },
                             ),
@@ -599,17 +612,8 @@ class _SearchPageState extends State<SearchPage>
                                 final isPlayingSong =
                                     currentVideo?.id.value == video.id.value;
                                 return ListTile(
-                                  onTap: () {
-                                    if (!_history
-                                        .any((v) => v.id == video.id)) {
-                                      setState(() =>
-                                          _history.insert(0, video));
-                                    }
-                                    widget.onPlaySong(video,
-                                        index: _results.indexOf(video));
-                                  },
                                   leading: Image.network(
-                                    video.thumbnails.highResUrl,
+                                    video.thumbnails.mediumResUrl,
                                     width: 50,
                                     height: 50,
                                     errorBuilder: (_, __, ___) =>
@@ -622,6 +626,15 @@ class _SearchPageState extends State<SearchPage>
                                   subtitle: Text(video.author,
                                       style: const TextStyle(
                                           color: Colors.white70)),
+                                  onTap: () {
+                                    widget.onPlaySong(video, index: index);
+                                    setState(() {
+                                      if (!_history.any((v) =>
+                                          v.id.value == video.id.value)) {
+                                        _history.insert(0, video);
+                                      }
+                                    });
+                                  },
                                   trailing: isPlayingSong
                                       ? FadeTransition(
                                           opacity: widget.fadeAnimation,
@@ -786,3 +799,4 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
   }
 }
+
