@@ -436,17 +436,27 @@ class _HomePageState extends State<HomePage>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        margin: const EdgeInsets.only(bottom: 56),
-                        color: Colors.black.withOpacity(0.7),
+                        margin: const EdgeInsets.only(
+                            bottom: 8, left: 8, right: 8), // moved closer
                         padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.deepPurple,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         child: Row(
                           children: [
-                            Image.network(currentVideo.thumbnails.lowResUrl,
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                currentVideo.thumbnails.lowResUrl,
                                 width: 50,
                                 height: 50,
+                                fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) =>
                                     const Icon(Icons.music_note,
-                                        color: Colors.white)),
+                                        color: Colors.white),
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(currentVideo.title,
@@ -477,25 +487,7 @@ class _HomePageState extends State<HomePage>
                           ],
                         ),
                       ),
-                      // --- Original progress bar below mini player ---
-                      StreamBuilder<Duration>(
-                        stream: _player.positionStream,
-                        builder: (context, snapshot) {
-                          final position = snapshot.data ?? Duration.zero;
-                          final progress = (_duration.inMilliseconds == 0)
-                              ? 0.0
-                              : position.inMilliseconds /
-                                  _duration.inMilliseconds;
-                          return LinearProgressIndicator(
-                            value: progress.clamp(0.0, 1.0),
-                            backgroundColor: Colors.white24,
-                            valueColor:
-                                const AlwaysStoppedAnimation<Color>(Colors.white),
-                            minHeight: 2,
-                          );
-                        },
-                      ),
-                      // --- NEW progress bar above mini player ---
+                      // --- NEW progress bar below mini player ---
                       StreamBuilder<Duration>(
                         stream: _player.positionStream,
                         builder: (context, snapshot) {
@@ -507,7 +499,8 @@ class _HomePageState extends State<HomePage>
                           return LinearProgressIndicator(
                             value: progress.clamp(0.0, 1.0),
                             backgroundColor: Colors.white12,
-                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white70),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.white70),
                             minHeight: 4,
                           );
                         },
@@ -613,9 +606,10 @@ class _SearchPageState extends State<SearchPage>
                   style: const TextStyle(color: Colors.white),
                   onChanged: (query) {
                     if (_debounce?.isActive ?? false) _debounce!.cancel();
-                    _debounce = Timer(
-                        const Duration(milliseconds: 500),
-                        () => _searchSongs(query));
+                    _debounce =
+                        Timer(const Duration(milliseconds: 500), () {
+                      _searchSongs(query);
+                    });
                     setState(() {});
                   },
                   decoration: InputDecoration(
@@ -642,8 +636,11 @@ class _SearchPageState extends State<SearchPage>
                       child: CircularProgressIndicator(color: Colors.white))
                   : displayList.isEmpty
                       ? const Center(
-                          child: Text("No songs",
-                              style: TextStyle(color: Colors.white70)))
+                          child: Text(
+                            "No songs",
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        )
                       : ListView.builder(
                           itemCount: displayList.length,
                           itemBuilder: (context, index) {
@@ -711,12 +708,13 @@ class PlaylistPage extends StatefulWidget {
   final Animation<double> fadeAnimation;
   final ValueNotifier<Video?> currentVideoNotifier;
 
-  const PlaylistPage(
-      {super.key,
-      required this.likedSongsNotifier,
-      required this.onPlaySong,
-      required this.fadeAnimation,
-      required this.currentVideoNotifier});
+  const PlaylistPage({
+    super.key,
+    required this.likedSongsNotifier,
+    required this.onPlaySong,
+    required this.fadeAnimation,
+    required this.currentVideoNotifier,
+  });
 
   @override
   State<PlaylistPage> createState() => _PlaylistPageState();
@@ -754,9 +752,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
                             style:
                                 TextStyle(color: Colors.white, fontSize: 18)),
                         subtitle: Text(
-                            "${likedSongs.length} ${likedSongs.length == 1 ? 'song' : 'songs'}",
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 14)),
+                          "${likedSongs.length} ${likedSongs.length == 1 ? 'song' : 'songs'}",
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 14),
+                        ),
                         children: likedSongs.isEmpty
                             ? [
                                 const ListTile(
