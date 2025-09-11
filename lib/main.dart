@@ -726,8 +726,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                       horizontal: 16, vertical: 8),
                                   child: ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.pinkAccent,
-                                      foregroundColor: Colors.white,
+                                      backgroundColor: Colors.white, // CHANGED
+                                      foregroundColor: Colors.black, // for contrast
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -799,4 +799,3 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
   }
 }
-
