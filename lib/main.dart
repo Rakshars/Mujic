@@ -432,46 +432,87 @@ class _HomePageState extends State<HomePage>
                 if (currentVideo == null) return const SizedBox();
                 return InkWell(
                   onTap: () => _openFullPlayer(context),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 56),
-                    color: Colors.black.withOpacity(0.7),
-                    padding: const EdgeInsets.all(8),
-                    child: Row(
-                      children: [
-                        Image.network(currentVideo.thumbnails.lowResUrl,
-                            width: 50,
-                            height: 50,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.music_note,
-                                    color: Colors.white)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(currentVideo.title,
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 14),
-                              overflow: TextOverflow.ellipsis),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 56),
+                        color: Colors.black.withOpacity(0.7),
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
+                          children: [
+                            Image.network(currentVideo.thumbnails.lowResUrl,
+                                width: 50,
+                                height: 50,
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.music_note,
+                                        color: Colors.white)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(currentVideo.title,
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 14),
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                            _isBuffering
+                                ? const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2),
+                                  )
+                                : AnimatedSwitcher(
+                                    duration:
+                                        const Duration(milliseconds: 250),
+                                    child: IconButton(
+                                      key: ValueKey<bool>(_isPlaying),
+                                      icon: Icon(
+                                          _isPlaying
+                                              ? Icons.pause
+                                              : Icons.play_arrow,
+                                          color: Colors.white),
+                                      onPressed: () => _togglePlayPause(null),
+                                    ),
+                                  ),
+                          ],
                         ),
-                        _isBuffering
-                            ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2),
-                              )
-                            : AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 250),
-                                child: IconButton(
-                                  key: ValueKey<bool>(_isPlaying),
-                                  icon: Icon(
-                                      _isPlaying
-                                          ? Icons.pause
-                                          : Icons.play_arrow,
-                                      color: Colors.white),
-                                  onPressed: () => _togglePlayPause(null),
-                                ),
-                              ),
-                      ],
-                    ),
+                      ),
+                      // --- Original progress bar below mini player ---
+                      StreamBuilder<Duration>(
+                        stream: _player.positionStream,
+                        builder: (context, snapshot) {
+                          final position = snapshot.data ?? Duration.zero;
+                          final progress = (_duration.inMilliseconds == 0)
+                              ? 0.0
+                              : position.inMilliseconds /
+                                  _duration.inMilliseconds;
+                          return LinearProgressIndicator(
+                            value: progress.clamp(0.0, 1.0),
+                            backgroundColor: Colors.white24,
+                            valueColor:
+                                const AlwaysStoppedAnimation<Color>(Colors.white),
+                            minHeight: 2,
+                          );
+                        },
+                      ),
+                      // --- NEW progress bar above mini player ---
+                      StreamBuilder<Duration>(
+                        stream: _player.positionStream,
+                        builder: (context, snapshot) {
+                          final position = snapshot.data ?? Duration.zero;
+                          final progress = (_duration.inMilliseconds == 0)
+                              ? 0.0
+                              : position.inMilliseconds /
+                                  _duration.inMilliseconds;
+                          return LinearProgressIndicator(
+                            value: progress.clamp(0.0, 1.0),
+                            backgroundColor: Colors.white12,
+                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white70),
+                            minHeight: 4,
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 );
               },
@@ -495,6 +536,7 @@ class _HomePageState extends State<HomePage>
   }
 }
 
+// --- SearchPage and PlaylistPage remain unchanged ---
 class SearchPage extends StatefulWidget {
   final YoutubeExplode yt;
   final Function(Video, {int? index}) onPlaySong;
@@ -600,20 +642,20 @@ class _SearchPageState extends State<SearchPage>
                       child: CircularProgressIndicator(color: Colors.white))
                   : displayList.isEmpty
                       ? const Center(
-                          child: Text("No results yet 🎵",
+                          child: Text("No songs",
                               style: TextStyle(color: Colors.white70)))
-                      : ValueListenableBuilder<Video?>(
-                          valueListenable: widget.currentVideoNotifier,
-                          builder: (_, currentVideo, __) {
-                            return ListView.builder(
-                              itemCount: displayList.length,
-                              itemBuilder: (context, index) {
-                                final video = displayList[index];
+                      : ListView.builder(
+                          itemCount: displayList.length,
+                          itemBuilder: (context, index) {
+                            final video = displayList[index];
+                            return ValueListenableBuilder<Video?>(
+                              valueListenable: widget.currentVideoNotifier,
+                              builder: (_, currentVideo, __) {
                                 final isPlayingSong =
                                     currentVideo?.id.value == video.id.value;
                                 return ListTile(
                                   leading: Image.network(
-                                    video.thumbnails.mediumResUrl,
+                                    video.thumbnails.highResUrl,
                                     width: 50,
                                     height: 50,
                                     errorBuilder: (_, __, ___) =>
@@ -629,10 +671,12 @@ class _SearchPageState extends State<SearchPage>
                                   onTap: () {
                                     widget.onPlaySong(video, index: index);
                                     setState(() {
-                                      if (!_history.any((v) =>
+                                      if (_history.any((v) =>
                                           v.id.value == video.id.value)) {
-                                        _history.insert(0, video);
+                                        _history.removeWhere((v) =>
+                                            v.id.value == video.id.value);
                                       }
+                                      _history.insert(0, video);
                                     });
                                   },
                                   trailing: isPlayingSong
@@ -726,8 +770,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                       horizontal: 16, vertical: 8),
                                   child: ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white, // CHANGED
-                                      foregroundColor: Colors.black, // for contrast
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: Colors.black,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
