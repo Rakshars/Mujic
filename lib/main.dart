@@ -1058,21 +1058,41 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                   )
                                 ]
                               : videos.map((video) {
-                                  return ListTile(
-                                    leading: Image.network(
-                                      video.thumbnails.highResUrl,
-                                      width: 50,
-                                      height: 50,
-                                      errorBuilder: (_, __, ___) =>
-                                          const Icon(Icons.music_note,
-                                              color: Colors.white),
-                                    ),
-                                    title: Text(video.title,
-                                        style: const TextStyle(color: Colors.white)),
-                                    subtitle: Text(video.author,
-                                        style:
-                                            const TextStyle(color: Colors.white70)),
-                                    onTap: () => widget.onPlaySong(video),
+                                  return ValueListenableBuilder<Video?>(
+                                    valueListenable: widget.currentVideoNotifier,
+                                    builder: (_, currentVideo, __) {
+                                      final isPlayingSong =
+                                          currentVideo?.id.value == video.id.value;
+                                      return ListTile(
+                                        leading: Image.network(
+                                          video.thumbnails.highResUrl,
+                                          width: 50,
+                                          height: 50,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(Icons.music_note,
+                                                  color: Colors.white),
+                                        ),
+                                        title: Text(video.title,
+                                            style: const TextStyle(color: Colors.white)),
+                                        subtitle: Text(video.author,
+                                            style:
+                                                const TextStyle(color: Colors.white70)),
+                                        onTap: () => widget.onPlaySong(video),
+                                        trailing: isPlayingSong
+                                            ? FadeTransition(
+                                                opacity: widget.fadeAnimation,
+                                                child: Container(
+                                                  width: 16,
+                                                  height: 16,
+                                                  decoration: const BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              )
+                                            : null,
+                                      );
+                                    },
                                   );
                                 }).toList(),
                         );
