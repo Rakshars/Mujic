@@ -962,65 +962,76 @@ class _SearchPageState extends State<SearchPage>
                               builder: (_, currentVideo, __) {
                                 final isPlayingSong =
                                     currentVideo?.id.value == video.id.value;
-                                return ListTile(
-                                  leading: Image.network(
-                                    video.thumbnails.highResUrl,
-                                    width: 50,
-                                    height: 50,
-                                    errorBuilder: (_, __, ___) =>
-                                        const Icon(Icons.music_note,
-                                            color: Colors.white),
-                                  ),
-                                  title: Text(video.title,
-                                      style: const TextStyle(
-                                          color: Colors.white)),
-                                  subtitle: Text(video.author,
-                                      style: const TextStyle(
-                                          color: Colors.white70)),
-                                  onTap: () {
-                                    widget.onPlaySong(video, index: index);
-                                    setState(() {
-                                      if (_history.any((v) =>
-                                          v.id.value == video.id.value)) {
-                                        _history.removeWhere((v) =>
-                                            v.id.value == video.id.value);
-                                      }
-                                      _history.insert(0, video);
-                                    });
-                                  },
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (isShowingHistory)
-                                        InkWell(
-                                          onTap: () => _removeFromHistory(video),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(4),
-                                            child: const Icon(
-                                              Icons.close,
-                                              color: Colors.white,
-                                              size: 16,
-                                            ),
-                                          ),
-                                        ),
-                                      if (isPlayingSong)
-                                        Padding(
-                                          padding: EdgeInsets.only(
-                                            left: isShowingHistory ? 8.0 : 0.0,
-                                          ),
-                                          child: FadeTransition(
-                                            opacity: widget.fadeAnimation,
-                                            child: Container(
-                                              width: 16,
-                                              height: 16,
-                                              decoration: const BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: Colors.white,
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ListTile(
+                                      dense: true,
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                                      leading: Image.network(
+                                        video.thumbnails.highResUrl,
+                                        width: 45,
+                                        height: 45,
+                                        errorBuilder: (_, __, ___) =>
+                                            const Icon(Icons.music_note,
+                                                color: Colors.white, size: 20),
+                                      ),
+                                      title: Text(video.title,
+                                          style: const TextStyle(
+                                              color: Colors.white, fontSize: 14)),
+                                      subtitle: Text(video.author,
+                                          style: const TextStyle(
+                                              color: Colors.white70, fontSize: 12)),
+                                      onTap: () {
+                                        widget.onPlaySong(video, index: index);
+                                        setState(() {
+                                          if (_history.any((v) =>
+                                              v.id.value == video.id.value)) {
+                                            _history.removeWhere((v) =>
+                                                v.id.value == video.id.value);
+                                          }
+                                          _history.insert(0, video);
+                                        });
+                                      },
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (isShowingHistory)
+                                            InkWell(
+                                              onTap: () => _removeFromHistory(video),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(4),
+                                                child: const Icon(
+                                                  Icons.close,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ),
-                                    ],
+                                          if (isPlayingSong)
+                                            Padding(
+                                              padding: EdgeInsets.only(
+                                                left: isShowingHistory ? 8.0 : 0.0,
+                                              ),
+                                              child: FadeTransition(
+                                                opacity: widget.fadeAnimation,
+                                                child: Container(
+                                                  width: 16,
+                                                  height: 16,
+                                                  decoration: const BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 );
                               },
@@ -1195,35 +1206,46 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                         builder: (_, currentVideo, __) {
                                           final isPlayingSong =
                                               currentVideo?.id.value == video.id.value;
-                                          return ListTile(
-                                            leading: Image.network(
-                                              video.thumbnails.highResUrl,
-                                              width: 50,
-                                              height: 50,
-                                              errorBuilder: (_, __, ___) =>
-                                                  const Icon(Icons.music_note,
-                                                      color: Colors.white),
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.05),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: ListTile(
+                                                dense: true,
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                                                leading: Image.network(
+                                                  video.thumbnails.highResUrl,
+                                                  width: 45,
+                                                  height: 45,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      const Icon(Icons.music_note,
+                                                          color: Colors.white, size: 20),
+                                                ),
+                                                title: Text(video.title,
+                                                    style:
+                                                        const TextStyle(color: Colors.white, fontSize: 14)),
+                                                subtitle: Text(video.author,
+                                                    style: const TextStyle(
+                                                        color: Colors.white70, fontSize: 12)),
+                                                onTap: () => widget.onPlaySong(video, playlist: likedSongs),
+                                                trailing: isPlayingSong
+                                                    ? FadeTransition(
+                                                        opacity: widget.fadeAnimation,
+                                                        child: Container(
+                                                          width: 16,
+                                                          height: 16,
+                                                          decoration: const BoxDecoration(
+                                                            shape: BoxShape.circle,
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                      )
+                                                    : null,
+                                              ),
                                             ),
-                                            title: Text(video.title,
-                                                style:
-                                                    const TextStyle(color: Colors.white)),
-                                            subtitle: Text(video.author,
-                                                style: const TextStyle(
-                                                    color: Colors.white70)),
-                                            onTap: () => widget.onPlaySong(video, playlist: likedSongs),
-                                            trailing: isPlayingSong
-                                                ? FadeTransition(
-                                                    opacity: widget.fadeAnimation,
-                                                    child: Container(
-                                                      width: 16,
-                                                      height: 16,
-                                                      decoration: const BoxDecoration(
-                                                        shape: BoxShape.circle,
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                                  )
-                                                : null,
                                           );
                                         },
                                       );
@@ -1285,34 +1307,76 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                       builder: (_, currentVideo, __) {
                                         final isPlayingSong =
                                             currentVideo?.id.value == video.id.value;
-                                        return ListTile(
-                                          leading: Image.network(
-                                            video.thumbnails.highResUrl,
-                                            width: 50,
-                                            height: 50,
-                                            errorBuilder: (_, __, ___) =>
-                                                const Icon(Icons.music_note,
-                                                    color: Colors.white),
-                                          ),
-                                          title: Text(video.title,
-                                              style: const TextStyle(color: Colors.white)),
-                                          subtitle: Text(video.author,
-                                              style:
-                                                  const TextStyle(color: Colors.white70)),
-                                          onTap: () => widget.onPlaySong(video, playlist: videos),
-                                          trailing: isPlayingSong
-                                              ? FadeTransition(
-                                                  opacity: widget.fadeAnimation,
-                                                  child: Container(
-                                                    width: 16,
-                                                    height: 16,
-                                                    decoration: const BoxDecoration(
-                                                      shape: BoxShape.circle,
-                                                      color: Colors.white,
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(0.05),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: InkWell(
+                                              onTap: () => widget.onPlaySong(video, playlist: videos),
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                child: Row(
+                                                  children: [
+                                                    Image.network(
+                                                      video.thumbnails.highResUrl,
+                                                      width: 45,
+                                                      height: 45,
+                                                      errorBuilder: (_, __, ___) =>
+                                                          const Icon(Icons.music_note,
+                                                              color: Colors.white, size: 20),
                                                     ),
-                                                  ),
-                                                )
-                                              : null,
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          SizedBox(
+                                                            width: double.infinity,
+                                                            child: Text(
+                                                              video.title,
+                                                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                              softWrap: false,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(height: 2),
+                                                          SizedBox(
+                                                            width: double.infinity,
+                                                            child: Text(
+                                                              video.author,
+                                                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                              softWrap: false,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    if (isPlayingSong) ...[
+                                                      const SizedBox(width: 8),
+                                                      FadeTransition(
+                                                        opacity: widget.fadeAnimation,
+                                                        child: Container(
+                                                          width: 16,
+                                                          height: 16,
+                                                          decoration: const BoxDecoration(
+                                                            shape: BoxShape.circle,
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         );
                                       },
                                     );
