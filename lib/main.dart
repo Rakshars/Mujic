@@ -998,7 +998,7 @@ class _SearchPageState extends State<SearchPage>
                   },
                   decoration: InputDecoration(
                     icon: const Icon(Icons.search, color: Colors.white),
-                    hintText: "Search YouTube Music...",
+                    hintText: "Search",
                     hintStyle: const TextStyle(color: Colors.white70),
                     border: InputBorder.none,
                     suffixIcon: _controller.text.isNotEmpty
