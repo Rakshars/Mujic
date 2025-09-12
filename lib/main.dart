@@ -88,6 +88,9 @@ class _HomePageState extends State<HomePage>
   // --- Add ValueNotifier for custom playlists to trigger updates ---
   final ValueNotifier<int> _playlistUpdateNotifier = ValueNotifier<int>(0);
 
+  // Add a ValueNotifier to trigger modal updates
+  final ValueNotifier<int> _modalUpdateNotifier = ValueNotifier<int>(0);
+
   @override
   void initState() {
     super.initState();
@@ -117,8 +120,13 @@ class _HomePageState extends State<HomePage>
       if (!mounted) return;
       setState(() {
         _isPlaying = state.playing;
+        // Clear buffering when playing starts
         if (_isPlaying) _isBuffering = false;
       });
+      
+      // Update modal when player state changes
+      _modalUpdateNotifier.value = _modalUpdateNotifier.value + 1;
+      
       if (_isPlaying) {
         _animController.forward();
       } else {
@@ -127,9 +135,14 @@ class _HomePageState extends State<HomePage>
     });
 
     _player.processingStateStream.listen((state) {
-      if (state == ProcessingState.ready && _isBuffering) {
+      if (!mounted) return;
+      
+      // Clear buffering when audio is ready to play
+      if (state == ProcessingState.ready) {
         setState(() => _isBuffering = false);
+        _modalUpdateNotifier.value = _modalUpdateNotifier.value + 1;
       }
+      
       if (state == ProcessingState.completed) {
         if (_isRepeating && _currentPlaylistIndex >= 0) {
           _playSong(_currentPlaylist[_currentPlaylistIndex],
@@ -177,11 +190,13 @@ class _HomePageState extends State<HomePage>
     yt.close();
     _animController.dispose();
     _playlistUpdateNotifier.dispose();
+    _modalUpdateNotifier.dispose();
     super.dispose();
   }
 
   Future<void> _playSong(Video video,
       {int? index, required List<Video> fromPlaylist}) async {
+    // Immediately update UI state for instant feedback
     setState(() {
       _currentPlaylist = fromPlaylist;
       _currentPlaylistIndex = index ?? fromPlaylist.indexOf(video);
@@ -190,21 +205,32 @@ class _HomePageState extends State<HomePage>
 
     _currentVideoNotifier.value = video;
 
+    // Run audio preparation asynchronously without blocking UI
+    _prepareAndPlayAudio(video);
+  }
+
+  Future<void> _prepareAndPlayAudio(Video video) async {
     try {
       String? audioUrl = _audioUrls[video.id.value];
+      
       if (audioUrl == null) {
+        // Fetch audio URL in background
         final manifest = await yt.videos.streamsClient.getManifest(video.id);
         final audio = manifest.audioOnly.withHighestBitrate();
         audioUrl = audio.url.toString();
         _audioUrls[video.id.value] = audioUrl;
       }
 
+      // Setup and play audio
       await _player.stop();
       await _player.setUrl(audioUrl);
       await _player.setVolume(_volume);
       await _player.play();
     } catch (e) {
-      if (mounted) setState(() => _isBuffering = false);
+      if (mounted) {
+        setState(() => _isBuffering = false);
+        _modalUpdateNotifier.value = _modalUpdateNotifier.value + 1;
+      }
       debugPrint("Error playing: $e");
     }
   }
@@ -471,277 +497,282 @@ class _HomePageState extends State<HomePage>
               valueListenable: _currentVideoNotifier,
               builder: (_, currentVideo, __) {
                 if (currentVideo == null) return const SizedBox();
-                return DraggableScrollableSheet(
-                  expand: false,
-                  initialChildSize: 0.85,
-                  maxChildSize: 0.95,
-                  minChildSize: 0.5,
-                  builder: (_, controller) => Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 5,
-                          width: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white24,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Container(
-                                height: 250,
-                                width: 250,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[800],
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Image.network(
-                                  currentVideo.thumbnails.maxResUrl,
-                                  height: 250,
-                                  width: 250,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Center(
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
-                                            : null,
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
+                return ValueListenableBuilder<int>(
+                  valueListenable: _modalUpdateNotifier,
+                  builder: (_, updateTrigger, __) {
+                    return DraggableScrollableSheet(
+                      expand: false,
+                      initialChildSize: 0.85,
+                      maxChildSize: 0.95,
+                      minChildSize: 0.5,
+                      builder: (_, controller) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 5,
+                              width: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white24,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Container(
+                                    height: 250,
+                                    width: 250,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[800],
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Image.network(
+                                      currentVideo.thumbnails.maxResUrl,
                                       height: 250,
                                       width: 250,
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.deepPurple.shade400,
-                                            Colors.deepPurple.shade700,
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.music_note,
-                                            size: 80,
-                                            color: Colors.white.withOpacity(0.8),
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (context, child, loadingProgress) {
+                                        if (loadingProgress == null) return child;
+                                        return Center(
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            value: loadingProgress.expectedTotalBytes != null
+                                                ? loadingProgress.cumulativeBytesLoaded /
+                                                    loadingProgress.expectedTotalBytes!
+                                                : null,
                                           ),
-                                          const SizedBox(height: 8),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
+                                        );
+                                      },
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          height: 250,
+                                          width: 250,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Colors.deepPurple.shade400,
+                                                Colors.deepPurple.shade700,
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.music_note,
+                                                size: 80,
+                                                color: Colors.white.withOpacity(0.8),
+                                              ),
+                                              const SizedBox(height: 8),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  if (_isBuffering)
+                                    const CircularProgressIndicator(
+                                        color: Colors.white),
+                                ],
                               ),
-                              if (_isBuffering)
-                                const CircularProgressIndicator(
-                                    color: Colors.white),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(currentVideo.title,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Text(currentVideo.author,
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 14)),
-                        const SizedBox(height: 20),
-                        StreamBuilder<Duration>(
-                          stream: _player.positionStream,
-                          builder: (context, snapshot) {
-                            final position = snapshot.data ?? Duration.zero;
-                            return Column(
-                              children: [
-                                Slider(
-                                  value: position.inSeconds
-                                      .clamp(0, _duration.inSeconds)
-                                      .toDouble(),
-                                  min: 0,
-                                  max: _duration.inSeconds.toDouble(),
-                                  activeColor: Colors.white,
-                                  inactiveColor: Colors.white24,
-                                  onChanged: (value) async {
-                                    final pos =
-                                        Duration(seconds: value.toInt());
-                                    await _player.seek(pos);
-                                  },
-                                ),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                            ),
+                            const SizedBox(height: 20),
+                            Text(currentVideo.title,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Text(currentVideo.author,
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 14)),
+                            const SizedBox(height: 20),
+                            StreamBuilder<Duration>(
+                              stream: _player.positionStream,
+                              builder: (context, snapshot) {
+                                final position = snapshot.data ?? Duration.zero;
+                                return Column(
                                   children: [
-                                    Text(_formatDuration(position),
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12)),
-                                    Text(_formatDuration(_duration),
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12)),
+                                    Slider(
+                                      value: position.inSeconds
+                                          .clamp(0, _duration.inSeconds)
+                                          .toDouble(),
+                                      min: 0,
+                                      max: _duration.inSeconds.toDouble(),
+                                      activeColor: Colors.white,
+                                      inactiveColor: Colors.white24,
+                                      onChanged: (value) async {
+                                        final pos =
+                                            Duration(seconds: value.toInt());
+                                        await _player.seek(pos);
+                                      },
+                                    ),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(_formatDuration(position),
+                                            style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12)),
+                                        Text(_formatDuration(_duration),
+                                            style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12)),
+                                      ],
+                                    ),
                                   ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            
+                            // First row of controls - Main playback controls
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.skip_previous,
+                                      size: 40, color: Colors.white),
+                                  onPressed: () {
+                                    if (_currentPlaylistIndex > 0) {
+                                      _playSong(
+                                          _currentPlaylist[_currentPlaylistIndex - 1],
+                                          index: _currentPlaylistIndex - 1,
+                                          fromPlaylist: _currentPlaylist);
+                                    }
+                                  },
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                ),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  child: IconButton(
+                                    key: ValueKey<bool>(_isPlaying),
+                                    icon: Icon(
+                                        _isPlaying
+                                            ? Icons.pause_circle
+                                            : Icons.play_circle,
+                                        size: 64,
+                                        color: Colors.white),
+                                    onPressed: () =>
+                                        _togglePlayPause(modalSetState),
+                                    splashColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.skip_next,
+                                      size: 40, color: Colors.white),
+                                  onPressed: () {
+                                    if (_currentPlaylistIndex + 1 <
+                                        _currentPlaylist.length) {
+                                      _playSong(
+                                          _currentPlaylist[_currentPlaylistIndex + 1],
+                                          index: _currentPlaylistIndex + 1,
+                                          fromPlaylist: _currentPlaylist);
+                                    }
+                                  },
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
                                 ),
                               ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        // First row of controls - Main playback controls
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.skip_previous,
-                                  size: 40, color: Colors.white),
-                              onPressed: () {
-                                if (_currentPlaylistIndex > 0) {
-                                  _playSong(
-                                      _currentPlaylist[_currentPlaylistIndex - 1],
-                                      index: _currentPlaylistIndex - 1,
-                                      fromPlaylist: _currentPlaylist);
-                                }
-                              },
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
                             ),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 250),
-                              child: IconButton(
-                                key: ValueKey<bool>(_isPlaying),
-                                icon: Icon(
-                                    _isPlaying
-                                        ? Icons.pause_circle
-                                        : Icons.play_circle,
-                                    size: 64,
-                                    color: Colors.white),
-                                onPressed: () =>
-                                    _togglePlayPause(modalSetState),
-                                splashColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                              ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Second row of controls - Additional controls
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                // Add to Playlist
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.add,
+                                    size: 30,
+                                    color: _songInPlaylists[_currentVideoNotifier.value?.id.value]?.isNotEmpty ?? false
+                                      ? Colors.purpleAccent
+                                      : Colors.white,
+                                  ),
+                                  onPressed: () => _showAddToPlaylistDialog(_currentVideoNotifier.value, modalSetState),
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                ),
+                                // Like Button
+                                IconButton(
+                                  icon: Icon(
+                                    _isLiked(currentVideo)
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    size: 30,
+                                    color: _isLiked(currentVideo)
+                                        ? Colors.red
+                                        : Colors.white,
+                                  ),
+                                  onPressed: () =>
+                                      _toggleLike(currentVideo, modalSetState),
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                ),
+                                // Repeat Button
+                                IconButton(
+                                  icon: Icon(Icons.repeat,
+                                      size: 30,
+                                      color: _isRepeating
+                                          ? Colors.blueAccent
+                                          : Colors.white),
+                                  onPressed: () => _toggleRepeat(modalSetState),
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                ),
+                                // Share Button
+                                IconButton(
+                                  icon: const Icon(Icons.share,
+                                      size: 30, color: Colors.white),
+                                  onPressed: () => _shareCurrentSong(currentVideo),
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.skip_next,
-                                  size: 40, color: Colors.white),
-                              onPressed: () {
-                                if (_currentPlaylistIndex + 1 <
-                                    _currentPlaylist.length) {
-                                  _playSong(
-                                      _currentPlaylist[_currentPlaylistIndex + 1],
-                                      index: _currentPlaylistIndex + 1,
-                                      fromPlaylist: _currentPlaylist);
-                                }
-                              },
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Second row of controls - Additional controls
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            // Add to Playlist
-                            IconButton(
-                              icon: Icon(
-                                Icons.add,
-                                size: 30,
-                                color: _songInPlaylists[_currentVideoNotifier.value?.id.value]?.isNotEmpty ?? false
-                                  ? Colors.purpleAccent
-                                  : Colors.white,
-                              ),
-                              onPressed: () => _showAddToPlaylistDialog(_currentVideoNotifier.value, modalSetState),
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                            ),
-                            // Like Button
-                            IconButton(
-                              icon: Icon(
-                                _isLiked(currentVideo)
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                size: 30,
-                                color: _isLiked(currentVideo)
-                                    ? Colors.red
-                                    : Colors.white,
-                              ),
-                              onPressed: () =>
-                                  _toggleLike(currentVideo, modalSetState),
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                            ),
-                            // Repeat Button
-                            IconButton(
-                              icon: Icon(Icons.repeat,
-                                  size: 30,
-                                  color: _isRepeating
-                                      ? Colors.blueAccent
-                                      : Colors.white),
-                              onPressed: () => _toggleRepeat(modalSetState),
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                            ),
-                            // Share Button
-                            IconButton(
-                              icon: const Icon(Icons.share,
-                                  size: 30, color: Colors.white),
-                              onPressed: () => _shareCurrentSong(currentVideo),
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
+                            
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                const Icon(Icons.volume_down,
+                                    color: Colors.white, size: 28),
+                                Expanded(
+                                  child: Slider(
+                                    value: _volume,
+                                    min: 0,
+                                    max: 2.0,
+                                    divisions: 20,
+                                    activeColor: Colors.white,
+                                    inactiveColor: Colors.white24,
+                                    onChanged: (value) async {
+                                      setState(() => _volume = value);
+                                      await _player.setVolume(_volume);
+                                      modalSetState(() {});
+                                    },
+                                  ),
+                                ),
+                                const Icon(Icons.volume_up,
+                                    color: Colors.white, size: 28),
+                              ],
                             ),
                           ],
                         ),
-                        
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            const Icon(Icons.volume_down,
-                                color: Colors.white, size: 28),
-                            Expanded(
-                              child: Slider(
-                                value: _volume,
-                                min: 0,
-                                max: 2.0,
-                                divisions: 20,
-                                activeColor: Colors.white,
-                                inactiveColor: Colors.white24,
-                                onChanged: (value) async {
-                                  setState(() => _volume = value);
-                                  await _player.setVolume(_volume);
-                                  modalSetState(() {});
-                                },
-                              ),
-                            ),
-                            const Icon(Icons.volume_up,
-                                color: Colors.white, size: 28),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 );
               },
             );
