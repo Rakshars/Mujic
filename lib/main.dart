@@ -312,23 +312,35 @@ class _HomePageState extends State<HomePage>
                         ),
                         const SizedBox(width: 8),
                         InkWell(
-                          onTap: () {
-                            setState(() {
-                              copied = true;
-                            });
-                            // Show feedback without actually using clipboard
-                            Timer(const Duration(seconds: 1), () {
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Link ready! Long press the URL to copy it manually'),
-                                    backgroundColor: Colors.orange,
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                              }
-                            });
+                          onTap: () async {
+                            try {
+                              await Clipboard.setData(ClipboardData(text: youtubeUrl));
+                              setState(() {
+                                copied = true;
+                              });
+                              // Show success message and close after delay
+                              Timer(const Duration(seconds: 1), () {
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Link copied to clipboard!'),
+                                      backgroundColor: Colors.green,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              });
+                            } catch (e) {
+                              // Handle error if clipboard access fails
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Failed to copy link'),
+                                  backgroundColor: Colors.red,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
                           },
                           splashColor: Colors.transparent,
                           highlightColor: Colors.transparent,
@@ -338,13 +350,13 @@ class _HomePageState extends State<HomePage>
                               color: Colors.transparent,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: copied ? Colors.green : Colors.deepPurple.shade200,
+                                color: Colors.deepPurple.shade200,
                                 width: 2,
                               ),
                             ),
                             child: Icon(
                               copied ? Icons.check : Icons.copy,
-                              color: copied ? Colors.green : Colors.deepPurple.shade200,
+                              color: Colors.deepPurple.shade200,
                               size: 20,
                             ),
                           ),
@@ -355,8 +367,8 @@ class _HomePageState extends State<HomePage>
                   const SizedBox(height: 8),
                   Text(
                     copied 
-                      ? 'Now long press the link to copy it!'
-                      : 'Click the copy icon, then long press the link to copy',
+                      ? 'Link copied successfully!'
+                      : 'Click the copy icon to copy the link',
                     style: const TextStyle(color: Colors.white60, fontSize: 12),
                   ),
                 ],
