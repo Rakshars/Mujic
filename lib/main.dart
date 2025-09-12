@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import 'package:share_plus/share_plus.dart';
 
 void main() {
   runApp(const MyApp());
@@ -218,6 +219,117 @@ class _HomePageState extends State<HomePage>
     return _likedSongsNotifier.value.any((v) => v.id.value == video.id.value);
   }
 
+  void _shareCurrentSong(Video video) {
+    final youtubeUrl = 'https://www.youtube.com/watch?v=${video.id.value}';
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            bool copied = false;
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1B2A3C),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                "Share Song",
+                style: TextStyle(color: Colors.white),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    video.title,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'by ${video.author}',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SelectableText(
+                            youtubeUrl,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              copied = true;
+                            });
+                            // Show feedback without actually using clipboard
+                            Timer(const Duration(seconds: 1), () {
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Link ready! Long press the URL to copy it manually'),
+                                    backgroundColor: Colors.orange,
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: copied ? Colors.green : Colors.deepPurple.shade200,
+                                width: 2,
+                              ),
+                            ),
+                            child: Icon(
+                              copied ? Icons.check : Icons.copy,
+                              color: copied ? Colors.green : Colors.deepPurple.shade200,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    copied 
+                      ? 'Now long press the link to copy it!'
+                      : 'Click the copy icon, then long press the link to copy',
+                    style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    "Close",
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showAddToPlaylistDialog(Video? currentVideo, StateSetter? modalSetState) {
   if (currentVideo == null) return;
 
@@ -240,7 +352,7 @@ class _HomePageState extends State<HomePage>
             ),
             content: _customPlaylists.isEmpty
                 ? const Text(
-                    "No playlists available.\nCreate one first!",
+                    "No playlists available\nTry creating one",
                     style: TextStyle(color: Colors.white70),
                   )
                 : SizedBox(
@@ -424,33 +536,11 @@ class _HomePageState extends State<HomePage>
                           },
                         ),
                         const SizedBox(height: 20),
+                        
+                        // First row of controls - Main playback controls
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // --- PLUS ICON (Add to Playlist) ---
-                            IconButton(
-                              icon: Icon(
-                              Icons.add,
-                              size: 32,
-                              color: _songInPlaylists[_currentVideoNotifier.value?.id.value]?.isNotEmpty ?? false
-                                ? Colors.purpleAccent
-                                : Colors.white,
-                              ),
-                              onPressed: () => _showAddToPlaylistDialog(_currentVideoNotifier.value, modalSetState),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                _isLiked(currentVideo)
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                size: 32,
-                                color: _isLiked(currentVideo)
-                                    ? Colors.red
-                                    : Colors.white,
-                              ),
-                              onPressed: () =>
-                                  _toggleLike(currentVideo, modalSetState),
-                            ),
                             IconButton(
                               icon: const Icon(Icons.skip_previous,
                                   size: 40, color: Colors.white),
@@ -490,6 +580,41 @@ class _HomePageState extends State<HomePage>
                                 }
                               },
                             ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Second row of controls - Additional controls
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            // Add to Playlist
+                            IconButton(
+                              icon: Icon(
+                                Icons.add,
+                                size: 30,
+                                color: _songInPlaylists[_currentVideoNotifier.value?.id.value]?.isNotEmpty ?? false
+                                  ? Colors.purpleAccent
+                                  : Colors.white,
+                              ),
+                              onPressed: () => _showAddToPlaylistDialog(_currentVideoNotifier.value, modalSetState),
+                            ),
+                            // Like Button
+                            IconButton(
+                              icon: Icon(
+                                _isLiked(currentVideo)
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                size: 30,
+                                color: _isLiked(currentVideo)
+                                    ? Colors.red
+                                    : Colors.white,
+                              ),
+                              onPressed: () =>
+                                  _toggleLike(currentVideo, modalSetState),
+                            ),
+                            // Repeat Button
                             IconButton(
                               icon: Icon(Icons.repeat,
                                   size: 30,
@@ -498,8 +623,15 @@ class _HomePageState extends State<HomePage>
                                       : Colors.white),
                               onPressed: () => _toggleRepeat(modalSetState),
                             ),
+                            // Share Button
+                            IconButton(
+                              icon: const Icon(Icons.share,
+                                  size: 30, color: Colors.white),
+                              onPressed: () => _shareCurrentSong(currentVideo),
+                            ),
                           ],
                         ),
+                        
                         const SizedBox(height: 20),
                         Row(
                           children: [
