@@ -95,6 +95,17 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
 
+    // Configure system UI overlay style for white status bar icons
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF0D1B2A),
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+
     // Disable system sounds
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
