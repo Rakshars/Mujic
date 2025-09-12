@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:share_plus/share_plus.dart';
@@ -19,8 +20,23 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
+        // Disable button click sounds
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
+      ).copyWith(
+        // Additional sound disabling
+        platform: TargetPlatform.android,
       ),
       home: const HomePage(),
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            // Disable system sounds
+            platformBrightness: Theme.of(context).brightness,
+          ),
+          child: child!,
+        );
+      },
     );
   }
 }
@@ -75,6 +91,9 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
+
+    // Disable system sounds
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
     _animController =
         AnimationController(vsync: this, duration: const Duration(seconds: 1));
@@ -285,6 +304,8 @@ class _HomePageState extends State<HomePage>
                               }
                             });
                           },
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.transparent,
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
@@ -393,6 +414,7 @@ class _HomePageState extends State<HomePage>
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.purpleAccent,
+                    splashFactory: NoSplash.splashFactory,
                   ),
                   onPressed: () {
                     setState(() {
@@ -599,6 +621,8 @@ class _HomePageState extends State<HomePage>
                                       fromPlaylist: _currentPlaylist);
                                 }
                               },
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
                             ),
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 250),
@@ -612,6 +636,8 @@ class _HomePageState extends State<HomePage>
                                     color: Colors.white),
                                 onPressed: () =>
                                     _togglePlayPause(modalSetState),
+                                splashColor: Colors.transparent,
+                                highlightColor: Colors.transparent,
                               ),
                             ),
                             IconButton(
@@ -626,6 +652,8 @@ class _HomePageState extends State<HomePage>
                                       fromPlaylist: _currentPlaylist);
                                 }
                               },
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
                             ),
                           ],
                         ),
@@ -646,6 +674,8 @@ class _HomePageState extends State<HomePage>
                                   : Colors.white,
                               ),
                               onPressed: () => _showAddToPlaylistDialog(_currentVideoNotifier.value, modalSetState),
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
                             ),
                             // Like Button
                             IconButton(
@@ -660,6 +690,8 @@ class _HomePageState extends State<HomePage>
                               ),
                               onPressed: () =>
                                   _toggleLike(currentVideo, modalSetState),
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
                             ),
                             // Repeat Button
                             IconButton(
@@ -669,12 +701,16 @@ class _HomePageState extends State<HomePage>
                                       ? Colors.blueAccent
                                       : Colors.white),
                               onPressed: () => _toggleRepeat(modalSetState),
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
                             ),
                             // Share Button
                             IconButton(
                               icon: const Icon(Icons.share,
                                   size: 30, color: Colors.white),
                               onPressed: () => _shareCurrentSong(currentVideo),
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
                             ),
                           ],
                         ),
@@ -738,6 +774,8 @@ class _HomePageState extends State<HomePage>
                 if (currentVideo == null) return const SizedBox();
                 return InkWell(
                   onTap: () => _openFullPlayer(context),
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -788,6 +826,8 @@ class _HomePageState extends State<HomePage>
                                               : Icons.play_arrow,
                                           color: Colors.white),
                                       onPressed: () => _togglePlayPause(null),
+                                      splashColor: Colors.transparent,
+                                      highlightColor: Colors.transparent,
                                     ),
                                   ),
                           ],
@@ -824,6 +864,7 @@ class _HomePageState extends State<HomePage>
         unselectedItemColor: Colors.white70,
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.search), label: "Search"),
           BottomNavigationBarItem(
@@ -936,6 +977,8 @@ class _SearchPageState extends State<SearchPage>
                               _controller.clear();
                               setState(() {});
                             },
+                            splashColor: Colors.transparent,
+                            highlightColor: Colors.transparent,
                           )
                         : null,
                   ),
@@ -1003,6 +1046,8 @@ class _SearchPageState extends State<SearchPage>
                                           if (isShowingHistory)
                                             InkWell(
                                               onTap: () => _removeFromHistory(video),
+                                              splashColor: Colors.transparent,
+                                              highlightColor: Colors.transparent,
                                               child: Container(
                                                 padding: const EdgeInsets.all(4),
                                                 child: const Icon(
@@ -1106,7 +1151,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
               child: const Text("Cancel", style: TextStyle(color: Colors.white70)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                splashFactory: NoSplash.splashFactory,
+              ),
               onPressed: () {
                 final name = playlistController.text.trim();
                 if (name.isNotEmpty && !widget.customPlaylists.containsKey(name)) {
@@ -1145,6 +1193,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   IconButton(
                     icon: const Icon(Icons.add, color: Colors.white, size: 28),
                     onPressed: _showCreatePlaylistDialog,
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
                   ),
                 ],
               ),
@@ -1155,172 +1205,79 @@ class _PlaylistPageState extends State<PlaylistPage> {
                 builder: (_, updateTrigger, __) {
                   return ListView(
                     children: [
-                      ValueListenableBuilder<List<Video>>(
-                        valueListenable: widget.likedSongsNotifier,
-                        builder: (_, likedSongs, __) {
-                          return ExpansionTile(
-                            initiallyExpanded: _expanded,
-                            onExpansionChanged: (value) {
-                              setState(() => _expanded = value);
-                            },
-                            leading: const Icon(Icons.favorite,
-                                color: Colors.pinkAccent, size: 32),
-                            title: const Text("Liked Songs",
-                                style: TextStyle(color: Colors.white, fontSize: 18)),
-                            subtitle: Text(
-                              "${likedSongs.length} ${likedSongs.length == 1 ? 'song' : 'songs'}",
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 14),
-                            ),
-                            children: likedSongs.isEmpty
-                                ? [
-                                    const ListTile(
-                                      title: Text("No songs yet",
-                                          style: TextStyle(color: Colors.white70)),
-                                    )
-                                  ]
-                                : [
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 8),
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: Colors.black,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ValueListenableBuilder<List<Video>>(
+                          valueListenable: widget.likedSongsNotifier,
+                          builder: (_, likedSongs, __) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                dividerColor: Colors.transparent,
+                              ),
+                              child: ExpansionTile(
+                                initiallyExpanded: _expanded,
+                                onExpansionChanged: (value) {
+                                  setState(() => _expanded = value);
+                                },
+                                leading: const Icon(Icons.favorite,
+                                    color: Colors.pinkAccent, size: 32),
+                                title: const Text("Liked Songs",
+                                    style: TextStyle(color: Colors.white, fontSize: 18)),
+                                subtitle: Text(
+                                  "${likedSongs.length} ${likedSongs.length == 1 ? 'song' : 'songs'}",
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 14),
+                                ),
+                                children: likedSongs.isEmpty
+                                    ? [
+                                        const ListTile(
+                                          title: Text("No songs yet",
+                                              style: TextStyle(color: Colors.white70)),
+                                        )
+                                      ]
+                                    : [
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16, vertical: 8),
+                                          child: ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.white,
+                                              foregroundColor: Colors.black,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              splashFactory: NoSplash.splashFactory,
+                                            ),
+                                            onPressed: () {
+                                              if (likedSongs.isNotEmpty) {
+                                                widget.onPlaySong(likedSongs.first, index: 0, playlist: likedSongs);
+                                              }
+                                            },
+                                            icon: const Icon(Icons.play_arrow),
+                                            label: const Text("Play All"),
                                           ),
                                         ),
-                                        onPressed: () {
-                                          if (likedSongs.isNotEmpty) {
-                                            widget.onPlaySong(likedSongs.first, index: 0, playlist: likedSongs);
-                                          }
-                                        },
-                                        icon: const Icon(Icons.play_arrow),
-                                        label: const Text("Play All"),
-                                      ),
-                                    ),
-                                    ...likedSongs.map((video) {
-                                      return ValueListenableBuilder<Video?>(
-                                        valueListenable: widget.currentVideoNotifier,
-                                        builder: (_, currentVideo, __) {
-                                          final isPlayingSong =
-                                              currentVideo?.id.value == video.id.value;
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withOpacity(0.05),
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: ListTile(
-                                                dense: true,
-                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-                                                leading: Image.network(
-                                                  video.thumbnails.highResUrl,
-                                                  width: 45,
-                                                  height: 45,
-                                                  errorBuilder: (_, __, ___) =>
-                                                      const Icon(Icons.music_note,
-                                                          color: Colors.white, size: 20),
-                                                ),
-                                                title: Text(video.title,
-                                                    style:
-                                                        const TextStyle(color: Colors.white, fontSize: 14)),
-                                                subtitle: Text(video.author,
-                                                    style: const TextStyle(
-                                                        color: Colors.white70, fontSize: 12)),
-                                                onTap: () => widget.onPlaySong(video, playlist: likedSongs),
-                                                trailing: isPlayingSong
-                                                    ? FadeTransition(
-                                                        opacity: widget.fadeAnimation,
-                                                        child: Container(
-                                                          width: 16,
-                                                          height: 16,
-                                                          decoration: const BoxDecoration(
-                                                            shape: BoxShape.circle,
-                                                            color: Colors.white,
-                                                          ),
-                                                        ),
-                                                      )
-                                                    : null,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      );
-                                    }).toList(),
-                                  ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      ...widget.customPlaylists.entries.map((entry) {
-                        final playlistName = entry.key;
-                        final videos = entry.value;
-
-                        return ExpansionTile(
-                          leading: const Icon(Icons.queue_music,
-                              color: Colors.white, size: 28),
-                          title: Text(
-                            playlistName,
-                            style: const TextStyle(color: Colors.white, fontSize: 18),
-                          ),
-                          subtitle: Text(
-                            "${videos.length} ${videos.length == 1 ? 'song' : 'songs'}",
-                            style:
-                                const TextStyle(color: Colors.white70, fontSize: 14),
-                          ),
-                          children: videos.isEmpty
-                              ? [
-                                  const ListTile(
-                                    title: Text("No songs yet",
-                                        style: TextStyle(color: Colors.white70)),
-                                  )
-                                ]
-                              : [
-                                  // Add Play All button for custom playlists
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 8),
-                                    child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.white,
-                                        foregroundColor: Colors.black,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        if (videos.isNotEmpty) {
-                                          widget.onPlaySong(videos.first, index: 0, playlist: videos);
-                                        }
-                                      },
-                                      icon: const Icon(Icons.play_arrow),
-                                      label: const Text("Play All"),
-                                    ),
-                                  ),
-                                  // Add all videos in the playlist
-                                  ...videos.map((video) {
-                                    return ValueListenableBuilder<Video?>(
-                                      valueListenable: widget.currentVideoNotifier,
-                                      builder: (_, currentVideo, __) {
-                                        final isPlayingSong =
-                                            currentVideo?.id.value == video.id.value;
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.05),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: InkWell(
-                                              onTap: () => widget.onPlaySong(video, playlist: videos),
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                child: Row(
-                                                  children: [
-                                                    Image.network(
+                                        ...likedSongs.map((video) {
+                                          return ValueListenableBuilder<Video?>(
+                                            valueListenable: widget.currentVideoNotifier,
+                                            builder: (_, currentVideo, __) {
+                                              final isPlayingSong =
+                                                  currentVideo?.id.value == video.id.value;
+                                              return Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white.withOpacity(0.05),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: ListTile(
+                                                    dense: true,
+                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                                                    leading: Image.network(
                                                       video.thumbnails.highResUrl,
                                                       width: 45,
                                                       height: 45,
@@ -1328,60 +1285,181 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                                           const Icon(Icons.music_note,
                                                               color: Colors.white, size: 20),
                                                     ),
-                                                    const SizedBox(width: 12),
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          SizedBox(
-                                                            width: double.infinity,
-                                                            child: Text(
-                                                              video.title,
-                                                              style: const TextStyle(color: Colors.white, fontSize: 14),
-                                                              maxLines: 1,
-                                                              overflow: TextOverflow.ellipsis,
-                                                              softWrap: false,
+                                                    title: Text(video.title,
+                                                        style:
+                                                            const TextStyle(color: Colors.white, fontSize: 14)),
+                                                    subtitle: Text(video.author,
+                                                        style: const TextStyle(
+                                                            color: Colors.white70, fontSize: 12)),
+                                                    onTap: () => widget.onPlaySong(video, playlist: likedSongs),
+                                                    trailing: isPlayingSong
+                                                        ? FadeTransition(
+                                                            opacity: widget.fadeAnimation,
+                                                            child: Container(
+                                                              width: 16,
+                                                              height: 16,
+                                                              decoration: const BoxDecoration(
+                                                                shape: BoxShape.circle,
+                                                                color: Colors.white,
+                                                              ),
                                                             ),
+                                                          )
+                                                        : null,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          );
+                                        }).toList(),
+                                      ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...widget.customPlaylists.entries.map((entry) {
+                        final playlistName = entry.key;
+                        final videos = entry.value;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Theme(
+                            data: Theme.of(context).copyWith(
+                              dividerColor: Colors.transparent,
+                            ),
+                            child: ExpansionTile(
+                              leading: const Icon(Icons.queue_music,
+                                  color: Colors.white, size: 28),
+                              title: Text(
+                                playlistName,
+                                style: const TextStyle(color: Colors.white, fontSize: 18),
+                              ),
+                              subtitle: Text(
+                                "${videos.length} ${videos.length == 1 ? 'song' : 'songs'}",
+                                style:
+                                    const TextStyle(color: Colors.white70, fontSize: 14),
+                              ),
+                              children: videos.isEmpty
+                                  ? [
+                                      const ListTile(
+                                        title: Text("No songs yet",
+                                            style: TextStyle(color: Colors.white70)),
+                                      )
+                                    ]
+                                  : [
+                                      // Add Play All button for custom playlists
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 8),
+                                        child: ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                            foregroundColor: Colors.black,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            splashFactory: NoSplash.splashFactory,
+                                          ),
+                                          onPressed: () {
+                                            if (videos.isNotEmpty) {
+                                              widget.onPlaySong(videos.first, index: 0, playlist: videos);
+                                            }
+                                          },
+                                          icon: const Icon(Icons.play_arrow),
+                                          label: const Text("Play All"),
+                                        ),
+                                      ),
+                                      // Add all videos in the playlist
+                                      ...videos.map((video) {
+                                        return ValueListenableBuilder<Video?>(
+                                          valueListenable: widget.currentVideoNotifier,
+                                          builder: (_, currentVideo, __) {
+                                            final isPlayingSong =
+                                                currentVideo?.id.value == video.id.value;
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white.withOpacity(0.05),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: InkWell(
+                                                  onTap: () => widget.onPlaySong(video, playlist: videos),
+                                                  splashColor: Colors.transparent,
+                                                  highlightColor: Colors.transparent,
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                    child: Row(
+                                                      children: [
+                                                        Image.network(
+                                                          video.thumbnails.highResUrl,
+                                                          width: 45,
+                                                          height: 45,
+                                                          errorBuilder: (_, __, ___) =>
+                                                              const Icon(Icons.music_note,
+                                                                  color: Colors.white, size: 20),
+                                                        ),
+                                                        const SizedBox(width: 12),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              SizedBox(
+                                                                width: double.infinity,
+                                                                child: Text(
+                                                                  video.title,
+                                                                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                                                                  maxLines: 1,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                  softWrap: false,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(height: 2),
+                                                              SizedBox(
+                                                                width: double.infinity,
+                                                                child: Text(
+                                                                  video.author,
+                                                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                                                  maxLines: 1,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                  softWrap: false,
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
-                                                          const SizedBox(height: 2),
-                                                          SizedBox(
-                                                            width: double.infinity,
-                                                            child: Text(
-                                                              video.author,
-                                                              style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                                              maxLines: 1,
-                                                              overflow: TextOverflow.ellipsis,
-                                                              softWrap: false,
+                                                        ),
+                                                        if (isPlayingSong) ...[
+                                                          const SizedBox(width: 8),
+                                                          FadeTransition(
+                                                            opacity: widget.fadeAnimation,
+                                                            child: Container(
+                                                              width: 16,
+                                                              height: 16,
+                                                              decoration: const BoxDecoration(
+                                                                shape: BoxShape.circle,
+                                                                color: Colors.white,
+                                                              ),
                                                             ),
                                                           ),
                                                         ],
-                                                      ),
+                                                      ],
                                                     ),
-                                                    if (isPlayingSong) ...[
-                                                      const SizedBox(width: 8),
-                                                      FadeTransition(
-                                                        opacity: widget.fadeAnimation,
-                                                        child: Container(
-                                                          width: 16,
-                                                          height: 16,
-                                                          decoration: const BoxDecoration(
-                                                            shape: BoxShape.circle,
-                                                            color: Colors.white,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ],
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ),
+                                            );
+                                          },
                                         );
-                                      },
-                                    );
-                                  }).toList(),
-                                ],
+                                      }).toList(),
+                                    ],
+                            ),
+                          ),
                         );
                       }).toList(),
                     ],
