@@ -888,10 +888,17 @@ class _SearchPageState extends State<SearchPage>
     }
   }
 
+  void _removeFromHistory(Video video) {
+    setState(() {
+      _history.removeWhere((v) => v.id.value == video.id.value);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final displayList = _controller.text.isEmpty ? _history : _results;
+    final isShowingHistory = _controller.text.isEmpty;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1B2A),
@@ -981,19 +988,40 @@ class _SearchPageState extends State<SearchPage>
                                       _history.insert(0, video);
                                     });
                                   },
-                                  trailing: isPlayingSong
-                                      ? FadeTransition(
-                                          opacity: widget.fadeAnimation,
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (isShowingHistory)
+                                        InkWell(
+                                          onTap: () => _removeFromHistory(video),
                                           child: Container(
-                                            width: 16,
-                                            height: 16,
-                                            decoration: const BoxDecoration(
-                                              shape: BoxShape.circle,
+                                            padding: const EdgeInsets.all(4),
+                                            child: const Icon(
+                                              Icons.close,
                                               color: Colors.white,
+                                              size: 16,
                                             ),
                                           ),
-                                        )
-                                      : null,
+                                        ),
+                                      if (isPlayingSong)
+                                        Padding(
+                                          padding: EdgeInsets.only(
+                                            left: isShowingHistory ? 8.0 : 0.0,
+                                          ),
+                                          child: FadeTransition(
+                                            opacity: widget.fadeAnimation,
+                                            child: Container(
+                                              width: 16,
+                                              height: 16,
+                                              decoration: const BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 );
                               },
                             );
