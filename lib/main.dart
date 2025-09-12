@@ -352,7 +352,7 @@ class _HomePageState extends State<HomePage>
             ),
             content: _customPlaylists.isEmpty
                 ? const Text(
-                    "No playlists available\nTry creating one",
+                    "No available playlist\nTry creating one",
                     style: TextStyle(color: Colors.white70),
                   )
                 : SizedBox(
@@ -473,11 +473,59 @@ class _HomePageState extends State<HomePage>
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              Image.network(
-                                currentVideo.thumbnails.maxResUrl,
+                              Container(
                                 height: 250,
                                 width: 250,
-                                fit: BoxFit.cover,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[800],
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Image.network(
+                                  currentVideo.thumbnails.maxResUrl,
+                                  height: 250,
+                                  width: 250,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Center(
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        value: loadingProgress.expectedTotalBytes != null
+                                            ? loadingProgress.cumulativeBytesLoaded /
+                                                loadingProgress.expectedTotalBytes!
+                                            : null,
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 250,
+                                      width: 250,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.deepPurple.shade400,
+                                            Colors.deepPurple.shade700,
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.music_note,
+                                            size: 80,
+                                            color: Colors.white.withOpacity(0.8),
+                                          ),
+                                          const SizedBox(height: 8),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                               if (_isBuffering)
                                 const CircularProgressIndicator(
