@@ -191,6 +191,8 @@ class _HomePageState extends State<HomePage>
         customPlaylists: _customPlaylists,
         onPlaylistsChanged: () => setState(() {}),
         playlistUpdateNotifier: _playlistUpdateNotifier,
+        onRemoveSongFromPlaylist: _removeSongFromPlaylist,
+        onRemoveLikedSong: _removeLikedSong,
       ),
     ];
   }
@@ -203,6 +205,28 @@ class _HomePageState extends State<HomePage>
     _playlistUpdateNotifier.dispose();
     _modalUpdateNotifier.dispose();
     super.dispose();
+  }
+
+  void _removeSongFromPlaylist(String playlistName, Video video) {
+    setState(() {
+      _customPlaylists[playlistName]?.removeWhere((v) => v.id.value == video.id.value);
+      
+      // Update song-playlist mapping
+      final songId = video.id.value;
+      _songInPlaylists[songId]?.remove(playlistName);
+      if (_songInPlaylists[songId]?.isEmpty ?? false) {
+        _songInPlaylists.remove(songId);
+      }
+      
+      // Trigger playlist update notification
+      _playlistUpdateNotifier.value = _playlistUpdateNotifier.value + 1;
+    });
+  }
+
+  void _removeLikedSong(Video video) {
+    final current = List<Video>.from(_likedSongsNotifier.value);
+    current.removeWhere((v) => v.id.value == video.id.value);
+    _likedSongsNotifier.value = current;
   }
 
   Future<void> _playSong(Video video,
@@ -1153,6 +1177,8 @@ class PlaylistPage extends StatefulWidget {
   final Map<String, List<Video>> customPlaylists;
   final VoidCallback onPlaylistsChanged;
   final ValueNotifier<int> playlistUpdateNotifier;
+  final Function(String, Video) onRemoveSongFromPlaylist;
+  final Function(Video) onRemoveLikedSong;
 
   const PlaylistPage({
     super.key,
@@ -1163,6 +1189,8 @@ class PlaylistPage extends StatefulWidget {
     required this.customPlaylists,
     required this.onPlaylistsChanged,
     required this.playlistUpdateNotifier,
+    required this.onRemoveSongFromPlaylist,
+    required this.onRemoveLikedSong,
   });
 
   @override
@@ -1346,8 +1374,25 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                                         style: const TextStyle(
                                                             color: Colors.white70, fontSize: 12)),
                                                     onTap: () => widget.onPlaySong(video, playlist: likedSongs),
-                                                    trailing: isPlayingSong
-                                                        ? FadeTransition(
+                                                    trailing: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        InkWell(
+                                                          onTap: () => widget.onRemoveLikedSong(video),
+                                                          splashColor: Colors.transparent,
+                                                          highlightColor: Colors.transparent,
+                                                          child: Container(
+                                                            padding: const EdgeInsets.all(4),
+                                                            child: const Icon(
+                                                              Icons.close,
+                                                              color: Colors.white,
+                                                              size: 16,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        if (isPlayingSong) ...[
+                                                          const SizedBox(width: 8),
+                                                          FadeTransition(
                                                             opacity: widget.fadeAnimation,
                                                             child: Container(
                                                               width: 16,
@@ -1357,8 +1402,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                                                 color: Colors.white,
                                                               ),
                                                             ),
-                                                          )
-                                                        : null,
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               );
@@ -1486,6 +1533,19 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                                                 ),
                                                               ),
                                                             ],
+                                                          ),
+                                                        ),
+                                                        InkWell(
+                                                          onTap: () => widget.onRemoveSongFromPlaylist(playlistName, video),
+                                                          splashColor: Colors.transparent,
+                                                          highlightColor: Colors.transparent,
+                                                          child: Container(
+                                                            padding: const EdgeInsets.all(4),
+                                                            child: const Icon(
+                                                              Icons.close,
+                                                              color: Colors.white,
+                                                              size: 16,
+                                                            ),
                                                           ),
                                                         ),
                                                         if (isPlayingSong) ...[
