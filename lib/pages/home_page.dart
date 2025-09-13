@@ -6,6 +6,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:share_plus/share_plus.dart';
 import 'search_page.dart';
 import 'playlist_page.dart';
+import 'home_content_page.dart';
 import '../utils/format_duration.dart';
 
 class HomePage extends StatefulWidget {
@@ -57,6 +58,9 @@ class _HomePageState extends State<HomePage>
 
   // Add a ValueNotifier to trigger modal updates
   final ValueNotifier<int> _modalUpdateNotifier = ValueNotifier<int>(0);
+
+  // --- Recently played songs ---
+  final ValueNotifier<List<Video>> _recentlyPlayedNotifier = ValueNotifier<List<Video>>([]);
 
   @override
   void initState() {
@@ -141,6 +145,15 @@ class _HomePageState extends State<HomePage>
     });
 
     _pages = [
+      HomeContentPage(
+        yt: yt,
+        onPlaySong: (video, {int? index}) =>
+            _playSong(video, index: index, fromPlaylist: _results),
+        fadeAnimation: _fadeAnimation,
+        currentVideoNotifier: _currentVideoNotifier,
+        recentlyPlayedNotifier: _recentlyPlayedNotifier,
+        likedSongsNotifier: _likedSongsNotifier,
+      ),
       SearchPage(
         yt: yt,
         onPlaySong: (video, {int? index}) =>
@@ -171,6 +184,7 @@ class _HomePageState extends State<HomePage>
     _animController.dispose();
     _playlistUpdateNotifier.dispose();
     _modalUpdateNotifier.dispose();
+    _recentlyPlayedNotifier.dispose();
     super.dispose();
   }
 
@@ -196,6 +210,19 @@ class _HomePageState extends State<HomePage>
     _likedSongsNotifier.value = current;
   }
 
+  void _addToRecentlyPlayed(Video video) {
+    final current = List<Video>.from(_recentlyPlayedNotifier.value);
+    // Remove if already exists to avoid duplicates
+    current.removeWhere((v) => v.id.value == video.id.value);
+    // Add to beginning
+    current.insert(0, video);
+    // Keep only latest 20 songs
+    if (current.length > 20) {
+      current.removeRange(20, current.length);
+    }
+    _recentlyPlayedNotifier.value = current;
+  }
+
   Future<void> _playSong(Video video,
       {int? index, required List<Video> fromPlaylist}) async {
     // Immediately update UI state for instant feedback
@@ -206,6 +233,9 @@ class _HomePageState extends State<HomePage>
     });
 
     _currentVideoNotifier.value = video;
+    
+    // Add to recently played
+    _addToRecentlyPlayed(video);
 
     // Run audio preparation asynchronously without blocking UI
     _prepareAndPlayAudio(video);
@@ -905,6 +935,7 @@ class _HomePageState extends State<HomePage>
         onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
           BottomNavigationBarItem(icon: Icon(Icons.search), label: "Search"),
           BottomNavigationBarItem(
               icon: Icon(Icons.playlist_play), label: "Playlists"),
