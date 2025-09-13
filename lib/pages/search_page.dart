@@ -84,6 +84,7 @@ class _SearchPageState extends State<SearchPage>
                 child: TextField(
                   controller: _controller,
                   style: const TextStyle(color: Colors.white),
+                  textAlignVertical: TextAlignVertical.center,
                   onChanged: (query) {
                     if (_debounce?.isActive ?? false) _debounce!.cancel();
                     _debounce =
@@ -97,6 +98,7 @@ class _SearchPageState extends State<SearchPage>
                     hintText: "Search",
                     hintStyle: const TextStyle(color: Colors.white70),
                     border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14.0),
                     suffixIcon: _controller.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, color: Colors.white),
