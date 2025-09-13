@@ -88,6 +88,107 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
   }
 
+  void _showEditPlaylistDialog(String oldName) {
+    final TextEditingController playlistController = TextEditingController(text: oldName);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1B2A3C),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            "Edit Playlist Name",
+            style: TextStyle(color: Colors.white),
+          ),
+          content: TextField(
+            controller: playlistController,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: "Enter new playlist name",
+              hintStyle: TextStyle(color: Colors.white54),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white54),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Colors.white70)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                splashFactory: NoSplash.splashFactory,
+              ),
+              onPressed: () {
+                final newName = playlistController.text.trim();
+                if (newName.isNotEmpty && 
+                    newName != oldName && 
+                    !widget.customPlaylists.containsKey(newName)) {
+                  setState(() {
+                    final videos = widget.customPlaylists[oldName] ?? [];
+                    widget.customPlaylists.remove(oldName);
+                    widget.customPlaylists[newName] = videos;
+                  });
+                  widget.onPlaylistsChanged();
+                  widget.playlistUpdateNotifier.value = widget.playlistUpdateNotifier.value + 1;
+                }
+                Navigator.pop(context);
+              },
+              child: const Text("Save", style: TextStyle(color: Colors.black)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDeletePlaylistDialog(String playlistName) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1B2A3C),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            "Delete Playlist",
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            "Are you sure you want to delete '$playlistName'? This action cannot be undone.",
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Colors.white70)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                splashFactory: NoSplash.splashFactory,
+              ),
+              onPressed: () {
+                setState(() {
+                  widget.customPlaylists.remove(playlistName);
+                });
+                widget.onPlaylistsChanged();
+                widget.playlistUpdateNotifier.value = widget.playlistUpdateNotifier.value + 1;
+                Navigator.pop(context);
+              },
+              child: const Text("Delete", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -276,6 +377,41 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                 "${videos.length} ${videos.length == 1 ? 'song' : 'songs'}",
                                 style:
                                     const TextStyle(color: Colors.white70, fontSize: 14),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  InkWell(
+                                    onTap: () => _showEditPlaylistDialog(playlistName),
+                                    splashColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      margin: const EdgeInsets.only(right: 4),
+                                      child: const Icon(
+                                        Icons.edit,
+                                        color: Colors.white70,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  InkWell(
+                                    onTap: () => _showDeletePlaylistDialog(playlistName),
+                                    onLongPress: () => _showDeletePlaylistDialog(playlistName),
+                                    splashColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      margin: const EdgeInsets.only(right: 8),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.redAccent,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.expand_more, color: Colors.white54),
+                                ],
                               ),
                               children: videos.isEmpty
                                   ? [
