@@ -29,8 +29,51 @@ class PlaylistPage extends StatefulWidget {
   State<PlaylistPage> createState() => _PlaylistPageState();
 }
 
-class _PlaylistPageState extends State<PlaylistPage> {
+class _PlaylistPageState extends State<PlaylistPage>
+    with SingleTickerProviderStateMixin {
   bool _expanded = false;
+  late AnimationController _blinkController;
+  late Animation<double> _blinkAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _blinkController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _blinkAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _blinkController, curve: Curves.easeInOut),
+    );
+    _blinkController.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _blinkController.dispose();
+    super.dispose();
+  }
+
+  String? _getCurrentPlaylistName() {
+    // Check if current video is from liked songs
+    final currentVideo = widget.currentVideoNotifier.value;
+    if (currentVideo == null) return null;
+    
+    // First check custom playlists (prioritize them over liked songs)
+    for (final entry in widget.customPlaylists.entries) {
+      if (entry.value.any((v) => v.id.value == currentVideo.id.value)) {
+        return entry.key;
+      }
+    }
+    
+    // Then check liked songs
+    final likedSongs = widget.likedSongsNotifier.value;
+    if (likedSongs.any((v) => v.id.value == currentVideo.id.value)) {
+      return 'Liked Songs';
+    }
+    
+    return null;
+  }
 
   void _showCreatePlaylistDialog() {
     final TextEditingController playlistController = TextEditingController();
@@ -247,6 +290,42 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                   style: const TextStyle(
                                       color: Colors.white70, fontSize: 14),
                                 ),
+                                trailing: ValueListenableBuilder<Video?>(
+                                  valueListenable: widget.currentVideoNotifier,
+                                  builder: (_, currentVideo, __) {
+                                    return ValueListenableBuilder<List<Video>>(
+                                      valueListenable: widget.likedSongsNotifier,
+                                      builder: (_, likedSongs, __) {
+                                        // Direct check if current video is in liked songs
+                                        bool isCurrentPlaylist = false;
+                                        if (currentVideo != null) {
+                                          isCurrentPlaylist = likedSongs.any((v) => v.id.value == currentVideo.id.value);
+                                        }
+                                        
+                                        return Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (isCurrentPlaylist) ...[
+                                              FadeTransition(
+                                                opacity: _blinkAnimation,
+                                                child: Container(
+                                                  width: 12,
+                                                  height: 12,
+                                                  decoration: const BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            const Icon(Icons.expand_more, color: Colors.white54),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
                                 children: likedSongs.isEmpty
                                     ? [
                                         const ListTile(
@@ -378,40 +457,62 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                 style:
                                     const TextStyle(color: Colors.white70, fontSize: 14),
                               ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  InkWell(
-                                    onTap: () => _showEditPlaylistDialog(playlistName),
-                                    splashColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      margin: const EdgeInsets.only(right: 4),
-                                      child: const Icon(
-                                        Icons.edit,
-                                        color: Colors.white70,
-                                        size: 18,
+                              trailing: ValueListenableBuilder<Video?>(
+                                valueListenable: widget.currentVideoNotifier,
+                                builder: (_, currentVideo, __) {
+                                  final currentPlaylistName = _getCurrentPlaylistName();
+                                  final isCurrentPlaylist = currentPlaylistName == playlistName;
+                                  
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      InkWell(
+                                        onTap: () => _showEditPlaylistDialog(playlistName),
+                                        splashColor: Colors.transparent,
+                                        highlightColor: Colors.transparent,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          margin: const EdgeInsets.only(right: 4),
+                                          child: const Icon(
+                                            Icons.edit,
+                                            color: Colors.white70,
+                                            size: 18,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                  InkWell(
-                                    onTap: () => _showDeletePlaylistDialog(playlistName),
-                                    onLongPress: () => _showDeletePlaylistDialog(playlistName),
-                                    splashColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      margin: const EdgeInsets.only(right: 8),
-                                      child: const Icon(
-                                        Icons.close,
-                                        color: Colors.redAccent,
-                                        size: 18,
+                                      InkWell(
+                                        onTap: () => _showDeletePlaylistDialog(playlistName),
+                                        onLongPress: () => _showDeletePlaylistDialog(playlistName),
+                                        splashColor: Colors.transparent,
+                                        highlightColor: Colors.transparent,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          margin: const EdgeInsets.only(right: 8),
+                                          child: const Icon(
+                                            Icons.close,
+                                            color: Colors.redAccent,
+                                            size: 18,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                  const Icon(Icons.expand_more, color: Colors.white54),
-                                ],
+                                      if (isCurrentPlaylist) ...[
+                                        FadeTransition(
+                                          opacity: _blinkAnimation,
+                                          child: Container(
+                                            width: 12,
+                                            height: 12,
+                                            decoration: const BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      const Icon(Icons.expand_more, color: Colors.white54),
+                                    ],
+                                  );
+                                },
                               ),
                               children: videos.isEmpty
                                   ? [
