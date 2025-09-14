@@ -8,6 +8,8 @@ import 'search_page.dart';
 import 'playlist_page.dart';
 import 'home_content_page.dart';
 import '../utils/format_duration.dart';
+import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_service/audio_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -242,30 +244,48 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _prepareAndPlayAudio(Video video) async {
-    try {
-      String? audioUrl = _audioUrls[video.id.value];
-      
-      if (audioUrl == null) {
-        // Fetch audio URL in background
-        final manifest = await yt.videos.streamsClient.getManifest(video.id);
-        final audio = manifest.audioOnly.withHighestBitrate();
-        audioUrl = audio.url.toString();
-        _audioUrls[video.id.value] = audioUrl;
-      }
+  try {
+    String? audioUrl = _audioUrls[video.id.value];
 
-      // Setup and play audio
-      await _player.stop();
-      await _player.setUrl(audioUrl);
-      await _player.setVolume(_volume);
-      await _player.play();
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isBuffering = false);
-        _modalUpdateNotifier.value = _modalUpdateNotifier.value + 1;
-      }
-      debugPrint("Error playing: $e");
+    if (audioUrl == null) {
+      // fetch audio url
+      final manifest = await yt.videos.streamsClient.getManifest(video.id);
+      final audio = manifest.audioOnly.withHighestBitrate();
+      audioUrl = audio.url.toString();
+      _audioUrls[video.id.value] = audioUrl;
     }
+
+    // stop current player, set new audio source with metadata (MediaItem) and play
+    await _player.stop();
+
+    final mediaItem = MediaItem(
+      id: video.id.value,
+      title: video.title,
+      artist: video.author,
+      // artUri is Uri? — use tryParse to avoid exceptions if string is invalid
+      artUri: Uri.parse("https://img.youtube.com/vi/${video.id.value}/hqdefault.jpg"),
+      // optional extras you may find useful in callbacks
+      extras: {'audioUrl': audioUrl},
+    );
+
+    await _player.setAudioSource(
+      AudioSource.uri(
+        Uri.parse(audioUrl),
+        tag: mediaItem,
+      ),
+    );
+
+    await _player.setVolume(_volume);
+    await _player.play();
+  } catch (e) {
+    if (mounted) {
+      setState(() => _isBuffering = false);
+      _modalUpdateNotifier.value = _modalUpdateNotifier.value + 1;
+    }
+    debugPrint("Error playing: $e");
   }
+}
+
 
   void _togglePlayPause(StateSetter? modalSetState) async {
     if (_isPlaying) {
@@ -865,9 +885,16 @@ class _HomePageState extends State<HomePage>
                                 width: 50,
                                 height: 50,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    const Icon(Icons.music_note,
-                                        color: Colors.white),
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                  color: Colors.deepPurple, // match your bar background
+                                  borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.music_note, color: Colors.white),
+                                ),
+
                               ),
                             ),
                             const SizedBox(width: 8),
