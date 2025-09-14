@@ -4,10 +4,11 @@ import 'pages/home_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   // Initialize JustAudioBackground for notifications + lock screen controls
   await JustAudioBackground.init(
     androidNotificationChannelId: 'com.example.mujic.audio',
-    androidNotificationChannelName: 'Mujic Playback',
+    androidNotificationChannelName: 'Mujic Playbook',
     androidNotificationOngoing: true,
   );
 
@@ -24,9 +25,9 @@ class MyApp extends StatelessWidget {
       title: 'Mujic',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      useMaterial3: true,
-      splashFactory: NoSplash.splashFactory, // disable ripple splash
-      highlightColor: Colors.transparent, // disable highlight color
+        useMaterial3: true,
+        splashFactory: NoSplash.splashFactory, // disable ripple splash
+        highlightColor: Colors.transparent, // disable highlight color
       ).copyWith(
         platform: TargetPlatform.android,
       ),
@@ -34,4 +35,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-  

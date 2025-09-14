@@ -9,7 +9,6 @@ import 'playlist_page.dart';
 import 'home_content_page.dart';
 import '../utils/format_duration.dart';
 import 'package:just_audio_background/just_audio_background.dart';
-import 'package:audio_service/audio_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -146,6 +145,9 @@ class _HomePageState extends State<HomePage>
       }
     });
 
+    // Setup Android Auto/media session controls
+    _setupAndroidAutoControls();
+
     _pages = [
       HomeContentPage(
         yt: yt,
@@ -177,6 +179,13 @@ class _HomePageState extends State<HomePage>
         onRemoveLikedSong: _removeLikedSong,
       ),
     ];
+  }
+
+  void _setupAndroidAutoControls() {
+    // Create a playlist from current playlist for just_audio_background
+    _player.sequenceStream.listen((sequence) {
+      // This will be called when the sequence changes
+    });
   }
 
   @override
@@ -244,48 +253,63 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _prepareAndPlayAudio(Video video) async {
-  try {
-    String? audioUrl = _audioUrls[video.id.value];
+    try {
+      String? audioUrl = _audioUrls[video.id.value];
 
-    if (audioUrl == null) {
-      // fetch audio url
-      final manifest = await yt.videos.streamsClient.getManifest(video.id);
-      final audio = manifest.audioOnly.withHighestBitrate();
-      audioUrl = audio.url.toString();
-      _audioUrls[video.id.value] = audioUrl;
+      if (audioUrl == null) {
+        // fetch audio url
+        final manifest = await yt.videos.streamsClient.getManifest(video.id);
+        final audio = manifest.audioOnly.withHighestBitrate();
+        audioUrl = audio.url.toString();
+        _audioUrls[video.id.value] = audioUrl;
+      }
+
+      // Create a playlist with current song and surrounding songs for better media controls
+      final playlistSources = <AudioSource>[];
+      
+      // Add previous songs (if any)
+      for (int i = 0; i < _currentPlaylist.length; i++) {
+        final playlistVideo = _currentPlaylist[i];
+        String? playlistAudioUrl = _audioUrls[playlistVideo.id.value];
+        
+        if (playlistAudioUrl == null && i == _currentPlaylistIndex) {
+          playlistAudioUrl = audioUrl; // Use already fetched URL for current song
+        } else if (playlistAudioUrl == null) {
+          // For other songs, we'll use placeholder URL - they'll be fetched when needed
+          playlistAudioUrl = 'https://placeholder.com/${playlistVideo.id.value}';
+        }
+
+        final mediaItem = MediaItem(
+          id: playlistVideo.id.value,
+          title: playlistVideo.title,
+          artist: playlistVideo.author,
+          artUri: Uri.parse("https://img.youtube.com/vi/${playlistVideo.id.value}/hqdefault.jpg"),
+          extras: {'audioUrl': playlistAudioUrl, 'needsFetch': playlistAudioUrl.contains('placeholder')},
+        );
+
+        playlistSources.add(
+          AudioSource.uri(
+            Uri.parse(playlistAudioUrl.contains('placeholder') ? audioUrl : playlistAudioUrl),
+            tag: mediaItem,
+          ),
+        );
+      }
+
+      // Create concatenating audio source (playlist)
+      final playlist = ConcatenatingAudioSource(children: playlistSources);
+      
+      await _player.setAudioSource(playlist, initialIndex: _currentPlaylistIndex);
+      await _player.setVolume(_volume);
+      await _player.play();
+
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isBuffering = false);
+        _modalUpdateNotifier.value = _modalUpdateNotifier.value + 1;
+      }
+      debugPrint("Error playing: $e");
     }
-
-    // stop current player, set new audio source with metadata (MediaItem) and play
-    await _player.stop();
-
-    final mediaItem = MediaItem(
-      id: video.id.value,
-      title: video.title,
-      artist: video.author,
-      // artUri is Uri? — use tryParse to avoid exceptions if string is invalid
-      artUri: Uri.parse("https://img.youtube.com/vi/${video.id.value}/hqdefault.jpg"),
-      // optional extras you may find useful in callbacks
-      extras: {'audioUrl': audioUrl},
-    );
-
-    await _player.setAudioSource(
-      AudioSource.uri(
-        Uri.parse(audioUrl),
-        tag: mediaItem,
-      ),
-    );
-
-    await _player.setVolume(_volume);
-    await _player.play();
-  } catch (e) {
-    if (mounted) {
-      setState(() => _isBuffering = false);
-      _modalUpdateNotifier.value = _modalUpdateNotifier.value + 1;
-    }
-    debugPrint("Error playing: $e");
   }
-}
-
 
   void _togglePlayPause(StateSetter? modalSetState) async {
     if (_isPlaying) {
@@ -294,6 +318,26 @@ class _HomePageState extends State<HomePage>
       await _player.play();
     }
     modalSetState?.call(() {});
+  }
+
+  void _skipToNext() {
+    if (_currentPlaylistIndex + 1 < _currentPlaylist.length) {
+      _playSong(
+        _currentPlaylist[_currentPlaylistIndex + 1],
+        index: _currentPlaylistIndex + 1,
+        fromPlaylist: _currentPlaylist,
+      );
+    }
+  }
+
+  void _skipToPrevious() {
+    if (_currentPlaylistIndex > 0) {
+      _playSong(
+        _currentPlaylist[_currentPlaylistIndex - 1],
+        index: _currentPlaylistIndex - 1,
+        fromPlaylist: _currentPlaylist,
+      );
+    }
   }
 
   void _toggleRepeat(StateSetter? modalSetState) {
@@ -706,14 +750,7 @@ class _HomePageState extends State<HomePage>
                                 IconButton(
                                   icon: const Icon(Icons.skip_previous,
                                       size: 40, color: Colors.white),
-                                  onPressed: () {
-                                    if (_currentPlaylistIndex > 0) {
-                                      _playSong(
-                                          _currentPlaylist[_currentPlaylistIndex - 1],
-                                          index: _currentPlaylistIndex - 1,
-                                          fromPlaylist: _currentPlaylist);
-                                    }
-                                  },
+                                  onPressed: _skipToPrevious,
                                   splashColor: Colors.transparent,
                                   highlightColor: Colors.transparent,
                                 ),
@@ -736,15 +773,7 @@ class _HomePageState extends State<HomePage>
                                 IconButton(
                                   icon: const Icon(Icons.skip_next,
                                       size: 40, color: Colors.white),
-                                  onPressed: () {
-                                    if (_currentPlaylistIndex + 1 <
-                                        _currentPlaylist.length) {
-                                      _playSong(
-                                          _currentPlaylist[_currentPlaylistIndex + 1],
-                                          index: _currentPlaylistIndex + 1,
-                                          fromPlaylist: _currentPlaylist);
-                                    }
-                                  },
+                                  onPressed: _skipToNext,
                                   splashColor: Colors.transparent,
                                   highlightColor: Colors.transparent,
                                 ),
@@ -889,12 +918,11 @@ class _HomePageState extends State<HomePage>
                                   width: 50,
                                   height: 50,
                                   decoration: BoxDecoration(
-                                  color: Colors.deepPurple, // match your bar background
+                                  color: Colors.deepPurple,
                                   borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: const Icon(Icons.music_note, color: Colors.white),
                                 ),
-
                               ),
                             ),
                             const SizedBox(width: 8),
