@@ -288,11 +288,12 @@ class _HomePageState extends State<HomePage>
         );
 
         playlistSources.add(
-          AudioSource.uri(
-            Uri.parse(playlistAudioUrl.contains('placeholder') ? audioUrl : playlistAudioUrl),
-            tag: mediaItem,
-          ),
-        );
+        AudioSource.uri(
+          Uri.parse(playlistAudioUrl),
+          tag: mediaItem,
+        ),
+      );
+
       }
 
       // Create concatenating audio source (playlist)
